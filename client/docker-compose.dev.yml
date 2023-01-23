@@ -1,0 +1,10 @@
+version: '3'
+services:
+  frontend:
+    build: .
+    # Listen on all adresses, not only localhost
+    entrypoint: npm run start -- --host 0.0.0.0
+    ports:
+      - '4200:4200'
+    volumes:
+      - .:/app

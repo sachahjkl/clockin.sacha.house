@@ -1,0 +1,25 @@
+<div class="prose max-w-full">
+  <h2>🔎 Récapitulatif des saisies pour aujourd'hui :</h2>
+
+  <table>
+    <thead>
+      <th>Entrée</th>
+      <th>Sortie</th>
+      <th>Entrée</th>
+      <th>Sortie</th>
+      <th class="font-bold">Total</th>
+    </thead>
+    <tbody>
+      <tr>
+        <td
+          *ngFor="let badgeage of adjustedBadgeages; index as i"
+          contenteditable
+          (input)="editBadgeage(i, getValue($event))">
+          {{ (badgeage | date : 'mediumTime') ?? 'N/A' }}
+        </td>
+
+        <td class="font-bold">{{ duration.toString("%H h %M m %S s") }}</td>
+      </tr>
+    </tbody>
+  </table>
+</div>

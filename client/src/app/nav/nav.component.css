@@ -1,0 +1,29 @@
+nav {
+  @apply rounded-b-xl shadow p-4 bg-white sticky top-0 mb-4 flex flex-wrap items-center gap-3;
+}
+
+ul {
+  @apply flex gap-3 sm:flex-row flex-col flex-auto px-3;
+}
+li {
+  @apply shadow-sm p-2 px-4 rounded-lg bg-gradient-to-r from-blue-400
+  to-blue-500 text-white hover:-translate-y-1 transition-all
+  hover:from-blue-500 hover:to-blue-600 cursor-pointer font-semibold text-center;
+}
+
+.separator {
+  @apply hidden sm:inline;
+}
+
+.active {
+  @apply from-blue-500 to-blue-600 outline outline-black/20 transition-all;
+}
+
+.brand {
+  @apply text-xl sm:w-auto w-full flex justify-center;
+}
+
+.brand .text {
+  @apply font-extrabold underline inline-block bg-gradient-to-tr from-blue-400
+  to-blue-600 text-transparent bg-clip-text w-[9ch] hover:from-green-400 hover:to-green-500 transition-all;
+}

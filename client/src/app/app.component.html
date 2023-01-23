@@ -1,0 +1,6 @@
+<div class="container mx-auto">
+  <app-nav [title]="(currentTitle$ | async) ?? ''"></app-nav>
+  <main>
+    <router-outlet ngClass="main"></router-outlet>
+  </main>
+</div>

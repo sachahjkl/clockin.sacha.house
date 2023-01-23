@@ -1,0 +1,3 @@
+main {
+  @apply min-h-[300px] rounded-t-xl bg-white shadow p-4;
+}

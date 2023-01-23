@@ -1,0 +1,13 @@
+<article class="">
+  <section class="flex items-center justify-center py-16">
+    <app-badgeur
+      [canBadge]="badgeurService.canBadge$ | async"
+      (newBadgeageEvent)="addBadgeageLocal($event)"></app-badgeur>
+  </section>
+  <section class="max-w-[80%] min-w-[300px] mx-auto">
+    <app-badgeur-detail
+      [badgeages]="badgeurService.badgeagesObservable$ | async"
+      (editBadgeageEvent)="editBadgeage($event.position, $event.badgeage)">
+    </app-badgeur-detail>
+  </section>
+</article>

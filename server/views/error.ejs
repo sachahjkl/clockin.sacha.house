@@ -1,0 +1,49 @@
+<html>
+	<head>
+		<title>Erreur HTTP <%=status%></title>
+		<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/water.css@2/out/water.css" />
+		<style>
+			body {
+				margin: 0 auto;
+			}
+			main {
+				text-align: center;
+				min-height: 100vh;
+				display: grid;
+				justify-content: center;
+				align-content: center;
+			}
+			main :is(h2, p) {
+				margin-top: 0;
+			}
+			pre {
+				white-space: pre-wrap;
+			}
+		</style>
+	</head>
+	<body>
+		<main>
+			<h2>Erreur HTTP <%=status%></h2>
+
+			<% if (message) { %>
+			<code>
+				<pre>
+<%=message%>
+</pre
+				>
+			</code>
+			<% } %> <% if (stack) { %>
+
+			<details open>
+				<summary>Stacktrace</summary>
+				<code>
+					<pre>
+<%=stack%>
+</pre
+					>
+				</code>
+			</details>
+			<% } %>
+		</main>
+	</body>
+</html>

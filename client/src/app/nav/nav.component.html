@@ -1,0 +1,18 @@
+<nav>
+  <div class="brand">
+    <span class="logo">⌛</span>&nbsp;<span class="text">{{ title }}</span>
+  </div>
+  <span class="separator">|</span>
+  <ul>
+    <li
+      routerLink="/"
+      routerLinkActive="active"
+      [routerLinkActiveOptions]="{ exact: true }">
+      🏠
+      <a>Home</a>
+    </li>
+    <li routerLink="/history" routerLinkActive="active">
+      ⌛ <a> Historique</a>
+    </li>
+  </ul>
+</nav>
