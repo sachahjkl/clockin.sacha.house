@@ -1,11 +1,15 @@
-import { Context, createContext } from './context';
 import { TRPCError, initTRPC } from '@trpc/server';
+
+import { Context } from './context';
+import superjson from 'superjson';
 
 interface Meta {
 	hasAuth: boolean;
 }
 
-export const t = initTRPC.context<Context>().meta<Meta>().create();
+export const t = initTRPC.context<Context>().meta<Meta>().create({
+	transformer: superjson
+});
 
 const isAuthed = t.middleware(async ({ meta, next, ctx }) => {
 	// only check authorization if enabled
@@ -15,7 +19,7 @@ const isAuthed = t.middleware(async ({ meta, next, ctx }) => {
 	return next();
 });
 
-export const router = t.router;
+export const createRouterRouter = t.router;
 export const middleware = t.middleware;
 export const publicProcedure = t.procedure;
 export const authedProcedure = t.procedure.use(isAuthed);

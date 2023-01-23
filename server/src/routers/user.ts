@@ -1,8 +1,8 @@
-import { authedProcedure, publicProcedure, router } from '../trpc';
+import { authedProcedure, createRouterRouter, publicProcedure } from '../trpc';
 
 import { z } from 'zod';
 
-export const userRouter = router({
+export const userRouter = createRouterRouter({
 	userCreate: authedProcedure
 		.meta({ hasAuth: false })
 		.input(
