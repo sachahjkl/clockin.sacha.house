@@ -1,7 +1,7 @@
 {
-	"name": "api.cassini",
+	"name": "api.clockin.sacha.house",
 	"version": "1.0.0",
-	"description": "APIs de CASSINI",
+	"description": "APIs de clockin.sacha.house",
 	"main": "dist/app.js",
 	"type": "module",
 	"scripts": {
@@ -13,12 +13,10 @@
 		"build-docs": "node ./swagger.js",
 		"docs": "concurrently npm:build-docs npm:dev"
 	},
-	"author": {
-		"email": "yavuz.OZTURK@ag2rlamondiale.fr",
-		"name": "Yavuz OZTURK"
-	},
 	"license": "ISC",
 	"dependencies": {
+		"@trpc/server": "^10.9.0",
+		"compression": "^1.7.4",
 		"cors": "^2.8.5",
 		"dotenv": "^16.0.3",
 		"dotenv-flow": "^3.2.0",
@@ -26,9 +24,13 @@
 		"express": "^4.18.1",
 		"graphql": "^16.6.0",
 		"graphql-request": "^5.0.0",
-		"swagger-ui-express": "^4.5.0"
+		"serverless-http": "^3.1.1",
+		"swagger-ui-express": "^4.5.0",
+		"zod": "^3.20.2"
 	},
 	"devDependencies": {
+		"@types/body-parser": "^1.19.2",
+		"@types/compression": "^1.7.2",
 		"@types/cors": "^2.8.12",
 		"@types/dotenv-flow": "^3.2.0",
 		"@types/express": "^4.17.14",
@@ -37,6 +39,7 @@
 		"@types/swagger-ui-express": "^4.1.3",
 		"@typescript-eslint/eslint-plugin": "^5.39.0",
 		"@typescript-eslint/parser": "^5.39.0",
+		"body-parser": "^1.20.1",
 		"concurrently": "^7.4.0",
 		"eslint": "^8.24.0",
 		"nodemon": "^2.0.20",

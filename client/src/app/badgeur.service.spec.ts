@@ -1,6 +1,5 @@
+import { BadgeurService } from './core/badgeur.service';
 import { TestBed } from '@angular/core/testing';
-
-import { BadgeurService } from './badgeur.service';
 
 describe('BadgeurService', () => {
   let service: BadgeurService;

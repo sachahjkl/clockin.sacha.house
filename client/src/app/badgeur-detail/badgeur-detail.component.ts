@@ -1,7 +1,7 @@
 import { Component, EventEmitter, Input, Output } from '@angular/core';
 
 import { Badgeages } from '../shared/types';
-import { BadgeurService } from '../badgeur.service';
+import { BadgeurService } from '../core/badgeur.service';
 import Duration from 'duration';
 
 // import { Option, none } from 'fp-ts/Option';

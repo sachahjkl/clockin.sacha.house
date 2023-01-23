@@ -1,16 +1,31 @@
-import express from 'express';
+import * as trpcExpress from '@trpc/server/adapters/express';
+
+import { appRouter } from './routers';
+import bodyParser from 'body-parser';
+import compression from 'compression';
+import cors from 'cors';
+import { createContext } from './trpc';
 import dotenv from 'dotenv-flow';
-import { router } from './router.js';
+import express from 'express';
 
 // charge les variables dans les fichiers ".env.*" dans l'environnement du processus
 dotenv.config();
-const port = process.env.PORT || process.env.LOCAL_PORT || 4875;
+const PORT = process.env.SERVER_PORT || 4875;
 
 const app = express();
-app.set('view engine', 'ejs');
 
-app.use(router);
+app.use(cors({ credentials: true, origin: process.env.WEB_CLIENT_URL }));
+app.use(compression());
+app.use(bodyParser.json());
 
-app.listen(port, function () {
-	console.log(`App is listening on port http://localhost:${port} !`);
+app.use(
+	'/trpc',
+	trpcExpress.createExpressMiddleware({
+		router: appRouter,
+		createContext
+	})
+);
+
+app.listen(PORT, function () {
+	console.log(`App is listening on port http://localhost:${PORT} !`);
 });

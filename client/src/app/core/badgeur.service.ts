@@ -1,6 +1,6 @@
 import { BehaviorSubject, map, of, withLatestFrom } from 'rxjs';
 
-import { Badgeages } from './shared/types';
+import { Badgeages } from '../shared/types';
 import { Injectable } from '@angular/core';
 
 @Injectable({
