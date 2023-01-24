@@ -11,9 +11,9 @@ export const t = initTRPC.context<Context>().meta<Meta>().create({
 	transformer: superjson
 });
 
-const isAuthed = t.middleware(async ({ meta, next, ctx }) => {
+const isAuthed = t.middleware(async ({ meta, next, ctx: _ctx }) => {
 	// only check authorization if enabled
-	if (meta?.hasAuth && !ctx.user) {
+	if (meta?.hasAuth) {
 		throw new TRPCError({ code: 'UNAUTHORIZED' });
 	}
 	return next();
