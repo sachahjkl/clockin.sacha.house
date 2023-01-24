@@ -1,0 +1,8 @@
+table {
+  @apply table-fixed;
+}
+
+tr,
+td {
+  @apply hover:bg-black/10 transition-colors p-2 m-2;
+}

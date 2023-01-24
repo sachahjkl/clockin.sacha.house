@@ -3,8 +3,8 @@
   "private": "true",
   "scripts": {},
   "workspaces": [
-    "client/",
-    "server/"
+    "frontend/",
+    "backend/"
   ],
   "dependencies": {
     "@trpc/client": "10.9.0",

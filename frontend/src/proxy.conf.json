@@ -1,0 +1,6 @@
+{
+  "/trpc": {
+    "target": "http://localhost:4583/trpc",
+    "secure": false
+  }
+}
