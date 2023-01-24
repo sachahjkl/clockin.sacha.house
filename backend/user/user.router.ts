@@ -1,6 +1,6 @@
 import { authedProcedure, createTRPCRouter, publicProcedure } from '../trpc';
 
-import { z } from 'zod';
+import { userSchema } from './user.model';
 
 export const userRouter = createTRPCRouter({
 	greet: publicProcedure.query(() => {
@@ -8,11 +8,7 @@ export const userRouter = createTRPCRouter({
 	}),
 	userCreate: authedProcedure
 		.meta({ hasAuth: false })
-		.input(
-			z.object({
-				username: z.string().max(120).min(4)
-			})
-		)
+		.input(userSchema)
 		.mutation(({ ctx, input }) => {
 			input;
 			ctx;

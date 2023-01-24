@@ -65,7 +65,6 @@ export class BadgeurDetailComponent implements OnInit {
   editBadgeage(position: number, submitted: string) {
     try {
       const parsed = this.decomposeWrittenTime(submitted);
-      console.log(parsed);
       if (!parsed) return;
 
       const badgeage = this.badgeages?.at(position) ?? new Date();
@@ -112,8 +111,8 @@ export class BadgeurDetailComponent implements OnInit {
     const now = new Date();
     const NUMBER_OF_DAYS_IN_WEEK = 5;
     const days: Date[] = [];
+    // de lundi = 1 à vendredi = 5
     for (let dayToSet = 1; dayToSet <= NUMBER_OF_DAYS_IN_WEEK; dayToSet++) {
-      console.info(dayToSet);
       const day = new Date(now);
       day.setDate(now.getDate() + (dayToSet - now.getDay()));
       days.push(day);
