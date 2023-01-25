@@ -1,7 +1,22 @@
-import { z } from 'zod';
+import { PrismaClient } from '@prisma/client';
 
-const User = z.object({
-	username: z.string().min(5).max(120)
+const prisma = new PrismaClient({
+	log: ['error', 'warn'],
+	errorFormat: 'minimal'
 });
 
-export type User = z.infer<typeof User>;
+export const db = prisma;
+
+export default prisma;
+
+export async function isUsernameTaken(username: string) {
+	return await db.user
+		.findFirst({
+			where: {
+				username: {
+					equals: username
+				}
+			}
+		})
+		.then(Boolean);
+}

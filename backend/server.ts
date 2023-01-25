@@ -1,15 +1,16 @@
 import * as router from './router';
 
-import { PrismaClient } from '@prisma/client';
 import cors from '@fastify/cors';
 import { createContext } from './trpc';
 import dotenv from 'dotenv-flow';
+import dotenvExpand from 'dotenv-expand';
 import fastify from 'fastify';
 import { fastifyTRPCPlugin } from '@trpc/server/adapters/fastify';
+import prisma from './utils/db';
 
-const prisma = new PrismaClient();
+const env = dotenv.config();
 
-dotenv.config();
+dotenvExpand.expand(env);
 
 const dev = !JSON.parse(process.env['PROD'] || 'false');
 const port = parseInt(process.env['SERVER_PORT'] || '4583');
