@@ -1,4 +1,4 @@
-import { BadgeurService } from '../core/badgeur.service';
+import { BadgeurService } from '../core/badgeur/badgeur.service';
 import { Component } from '@angular/core';
 
 @Component({
