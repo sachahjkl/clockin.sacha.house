@@ -1,7 +1,7 @@
 import { Component, EventEmitter, Input, OnInit, Output } from '@angular/core';
 
 import { Badgeages } from '../core/types';
-import { BadgeurService } from '../core/badgeur.service';
+import { BadgeurService } from '../core/badgeur/badgeur.service';
 import Duration from 'duration';
 import { client } from '../core/trpc';
 

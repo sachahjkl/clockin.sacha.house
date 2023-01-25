@@ -1,7 +1,8 @@
+import * as jwt from 'jsonwebtoken';
+
 import { BaseUser, EncryptedUser } from '../user/user.model';
 
 import { db } from './db';
-import jwt from 'jsonwebtoken';
 
 export async function userFromAuthorization(authorization: string) {
 	const [_bearer, token] = authorization.split(' ');
@@ -26,7 +27,7 @@ export async function userFromAuthorization(authorization: string) {
 export async function verifyJWTToken(token: string | null): Promise<BaseUser | null> {
 	if (!token) return null;
 
-	const SECRET = process.env.JWT_SECRET;
+	const SECRET = process.env['JWT_SECRET'];
 
 	if (!SECRET) throw new Error('JWT Signing key not found !');
 	try {
@@ -39,6 +40,9 @@ export async function verifyJWTToken(token: string | null): Promise<BaseUser | n
 
 		return user;
 	} catch (err) {
+		if (err instanceof jwt.TokenExpiredError) {
+			throw new Error('Token expired');
+		}
 		throw new Error('Invalid token');
 	}
 }
@@ -55,8 +59,9 @@ export async function verifyJWTToken(token: string | null): Promise<BaseUser | n
  */
 
 export const createSession = async (user: EncryptedUser) => {
-	const SECRET = process.env.JWT_SECRET;
-	if (!SECRET) return;
+	const SECRET = process.env['JWT_SECRET'];
+
+	if (!SECRET) throw new Error('JWT Secret unreadable !');
 	const data: EncryptedUser = { id: user.id, username: user.username };
 	const token = jwt.sign(data, SECRET, {
 		expiresIn: '15d'

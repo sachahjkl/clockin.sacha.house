@@ -1,9 +1,7 @@
 {
   "name": "clockin.sacha.house",
-  "private": "true",
+  "private": true,
   "workspaces": [
     "packages/*"
-  ],
-  "dependencies": {},
-  "devDependencies": {}
+  ]
 }

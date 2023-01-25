@@ -1,9 +1,9 @@
+import * as dotenv from 'dotenv-flow';
+import * as dotenvExpand from 'dotenv-expand';
 import * as router from './router';
 
 import cors from '@fastify/cors';
 import { createContext } from './trpc';
-import dotenv from 'dotenv-flow';
-import dotenvExpand from 'dotenv-expand';
 import fastify from 'fastify';
 import { fastifyTRPCPlugin } from '@trpc/server/adapters/fastify';
 import prisma from './utils/db';
@@ -12,7 +12,7 @@ const env = dotenv.config();
 
 dotenvExpand.expand(env);
 
-const dev = !JSON.parse(process.env['PROD'] || 'false');
+const dev = process.env['NODE_ENV'] !== 'prod';
 const port = parseInt(process.env['SERVER_PORT'] || '4583');
 
 function createServer() {

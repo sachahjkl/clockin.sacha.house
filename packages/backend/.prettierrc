@@ -2,7 +2,5 @@
 	"useTabs": true,
 	"singleQuote": true,
 	"trailingComma": "none",
-	"printWidth": 100,
-    "editorconfig": true
+	"printWidth": 100
 }
-

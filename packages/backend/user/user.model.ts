@@ -8,8 +8,8 @@ export const loginUserSchema = z.object({
 			required_error: "Le nom d'utilisateur est obligatoire."
 		})
 		.trim()
-		.max(120)
-		.min(4),
+		.max(120, { message: "La longueur maximale du nom d'utilisateur est de 120 caractères." })
+		.min(4, { message: "La longueur minimale du nom d'utilisateur est de 4 caractères." }),
 	password: z
 		.string({
 			invalid_type_error: 'Le mote de passe doit être une chaîne de caractère.',
