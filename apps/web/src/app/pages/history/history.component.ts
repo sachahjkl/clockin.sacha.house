@@ -1,6 +1,8 @@
-import { Component, OnInit, inject, signal } from "@angular/core";
+import { Component, OnInit, effect, inject, signal } from "@angular/core";
 import { DatePipe } from "@angular/common";
+import { Router } from "@angular/router";
 import { ApiService } from "../../core/api.service";
+import { AccountService } from "../../core/account.service";
 import type { Badgeage } from "../../core/models";
 
 @Component({
@@ -8,38 +10,39 @@ import type { Badgeage } from "../../core/models";
     standalone: true,
     imports: [DatePipe],
     template: `
-        <div class="space-y-4">
+        <article class="mx-auto w-full min-w-[300px] space-y-4">
             <h1 class="text-2xl font-bold">Historique</h1>
 
             @if (error()) {
-                <div class="rounded bg-red-100 px-4 py-2 text-red-800">{{ error() }}</div>
+                <div class="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-rose-700 shadow-sm">{{ error() }}</div>
             }
 
-            <div class="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm">
-                <table class="w-full text-left text-sm">
-                    <thead class="bg-gray-100">
+            <div class="overflow-hidden rounded-xl bg-white shadow">
+                <div class="overflow-x-auto">
+                    <table class="w-full border-separate border-spacing-0 text-left text-sm">
+                        <thead class="bg-slate-100 text-slate-600">
                         <tr>
-                            <th class="px-4 py-2">Jour</th>
-                            <th class="px-4 py-2">Entrée 1</th>
-                            <th class="px-4 py-2">Sortie 1</th>
-                            <th class="px-4 py-2">Entrée 2</th>
-                            <th class="px-4 py-2">Sortie 2</th>
-                            <th class="px-4 py-2"></th>
+                            <th class="px-4 py-3 font-semibold">Jour</th>
+                            <th class="px-4 py-3 font-semibold">Entrée 1</th>
+                            <th class="px-4 py-3 font-semibold">Sortie 1</th>
+                            <th class="px-4 py-3 font-semibold">Entrée 2</th>
+                            <th class="px-4 py-3 font-semibold">Sortie 2</th>
+                            <th class="px-4 py-3 font-semibold"></th>
                         </tr>
-                    </thead>
-                    <tbody>
+                        </thead>
+                        <tbody class="bg-white">
                         @for (b of badgeages(); track b.id) {
-                            <tr class="border-t border-gray-100">
-                                <td class="px-4 py-2 font-medium">
+                            <tr class="border-t border-slate-100">
+                                <td class="px-4 py-3 font-semibold text-slate-800">
                                     {{ b.day | date: "mediumDate" }}
                                 </td>
-                                <td class="px-4 py-2">{{ b.firstEntry | date: "HH:mm:ss" }}</td>
-                                <td class="px-4 py-2">{{ b.firstExit | date: "HH:mm:ss" }}</td>
-                                <td class="px-4 py-2">{{ b.secondEntry | date: "HH:mm:ss" }}</td>
-                                <td class="px-4 py-2">{{ b.secondExit | date: "HH:mm:ss" }}</td>
-                                <td class="px-4 py-2">
+                                <td class="px-4 py-3 text-slate-600">{{ b.firstEntry | date: "HH:mm:ss" }}</td>
+                                <td class="px-4 py-3 text-slate-600">{{ b.firstExit | date: "HH:mm:ss" }}</td>
+                                <td class="px-4 py-3 text-slate-600">{{ b.secondEntry | date: "HH:mm:ss" }}</td>
+                                <td class="px-4 py-3 text-slate-600">{{ b.secondExit | date: "HH:mm:ss" }}</td>
+                                <td class="px-4 py-3">
                                     <button
-                                        class="btn btn-danger py-1 text-xs"
+                                        class="inline-flex cursor-pointer items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-rose-400 to-rose-500 px-4 py-1 text-center text-xs font-semibold text-white shadow-sm transition-all hover:from-rose-500 hover:to-rose-600 hover:outline hover:outline-black/20 active:scale-[0.98]"
                                         (click)="remove(b.id)"
                                     >
                                         Supprimer
@@ -48,25 +51,38 @@ import type { Badgeage } from "../../core/models";
                             </tr>
                         } @empty {
                             <tr>
-                                <td colspan="6" class="px-4 py-6 text-center text-gray-500">
+                                <td colspan="6" class="px-4 py-8 text-center text-slate-400">
                                     Aucun badgeage
                                 </td>
                             </tr>
                         }
-                    </tbody>
-                </table>
+                        </tbody>
+                    </table>
+                </div>
             </div>
-        </div>
+        </article>
     `,
 })
 export class HistoryComponent implements OnInit {
     private api = inject(ApiService);
+	private account = inject(AccountService);
+	private router = inject(Router);
 
     readonly badgeages = signal<Badgeage[]>([]);
     readonly error = signal<string | null>(null);
 
+	constructor() {
+		effect(() => {
+			if (!this.account.userId()) {
+				void this.router.navigate(["/account"]);
+			}
+		});
+	}
+
     ngOnInit(): void {
-		this.load().catch((e) => this.error.set(e.message));
+		if (this.account.userId()) {
+			this.load().catch((e) => this.error.set(e.message));
+		}
 	}
 
     async load(): Promise<void> {

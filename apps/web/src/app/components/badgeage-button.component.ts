@@ -6,10 +6,10 @@ import { Component, output } from "@angular/core";
     template: `
         <button
             type="button"
-            class="group w-full cursor-pointer rounded-[2rem] bg-gradient-to-r from-yellow-200 to-yellow-300 px-8 py-10 text-4xl font-bold text-slate-900 shadow transition-all hover:shadow-lg active:translate-y-2 sm:text-5xl"
+            class="group cursor-pointer rounded-3xl bg-gradient-to-r from-yellow-200 to-yellow-300 px-16 py-10 text-5xl font-bold text-slate-900 shadow transition-all disabled:grayscale disabled:active:translate-y-0 sm:text-6xl [&:not(:disabled)]:hover:shadow-lg [&:not(:disabled)]:active:translate-y-2 [&:not(:disabled)]:active:shadow-xl"
             (click)="badge.emit()"
         >
-            <span class="mr-3 inline-block transition-transform group-hover:animate-bounce">👆</span>
+            <span class="mr-3 inline-block group-hover:animate-bounce">👆</span>
             <span>Badger</span>
         </button>
     `,

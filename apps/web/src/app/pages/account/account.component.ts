@@ -1,58 +1,67 @@
-import { Component } from "@angular/core";
-import { FormsModule } from "@angular/forms";
+import { Component, signal } from "@angular/core";
+import { FormField, form, required } from "@angular/forms/signals";
 import { AccountService } from "../../core/account.service";
 
 @Component({
     selector: "app-account",
     standalone: true,
-    imports: [FormsModule],
+    imports: [FormField],
     template: `
-        <div class="space-y-6 rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
-            <h1 class="text-2xl font-bold">Compte</h1>
-            <p class="text-gray-600">
-                Pas de mot de passe. Ton identifiant est stocké dans ce navigateur. Garde-le
-                précieusement, il est la seule clé de tes données.
-            </p>
+        <article class="mx-auto my-3 max-w-2xl space-y-6">
+            <div class="space-y-2">
+                <h1 class="text-2xl font-bold">Compte</h1>
+                <p class="text-slate-600">
+                    Pas de mot de passe. Ton identifiant est stocké dans ce navigateur. Garde-le
+                    précieusement, c'est la seule clé de tes données.
+                </p>
+            </div>
 
             @if (account.error()) {
-                <div class="rounded bg-red-100 px-4 py-2 text-red-800">{{ account.error() }}</div>
+                <div class="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-rose-700 shadow-sm">{{ account.error() }}</div>
             }
 
-            <div class="flex flex-col gap-3 sm:flex-row">
-                <button class="btn" [disabled]="account.loading()" (click)="account.create()">
-                    @if (account.loading()) {
-                        Création…
-                    } @else {
-                        Créer un compte
-                    }
-                </button>
-            </div>
+            <fieldset class="grid grid-cols-1 gap-6 rounded border p-5 shadow-sm">
+                <legend class="px-2 text-xl font-bold">Accès</legend>
 
-            <hr class="border-gray-200" />
-
-            <div>
-                <label class="block text-sm font-medium text-gray-700"
-                    >Récupérer un compte existant</label
-                >
-                <div class="mt-1 flex gap-2">
-                    <input
-                        type="text"
-                        class="input"
-                        [(ngModel)]="recoverId"
-                        placeholder="Colle ton identifiant"
-                    />
-                    <button class="btn" (click)="recover()">Récupérer</button>
+                <div class="space-y-3">
+                    <span class="block text-sm font-medium text-slate-700">Créer un nouvel accès</span>
+                    <button class="inline-flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-400 to-emerald-500 px-4 py-2 text-center font-semibold text-white shadow-sm transition-all hover:from-emerald-500 hover:to-emerald-600 hover:outline hover:outline-black/20 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto" [disabled]="account.loading()" (click)="account.create()">
+                        @if (account.loading()) {
+                            Création…
+                        } @else {
+                            Créer un compte
+                        }
+                    </button>
                 </div>
-            </div>
-        </div>
+
+                <div class="space-y-3">
+                    <label class="block text-sm font-medium text-slate-700">Récupérer un compte existant</label>
+                    <div class="flex flex-col gap-2 sm:flex-row">
+                        <input
+                            type="text"
+                            class="mt-1 block w-full rounded-xl border border-transparent bg-slate-100 px-3 py-2.5 text-slate-900 outline-none transition focus:border-slate-300 focus:bg-white focus:ring-0"
+                            [formField]="recoverAccountForm.recoverId"
+                            placeholder="Colle ton identifiant"
+                        />
+                        <button class="inline-flex cursor-pointer items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-400 to-emerald-500 px-4 py-2 text-center font-semibold text-white shadow-sm transition-all hover:from-emerald-500 hover:to-emerald-600 hover:outline hover:outline-black/20 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50" (click)="recover()" [disabled]="recoverAccountForm.recoverId().invalid()">Récupérer</button>
+                    </div>
+                    @if (recoverAccountForm.recoverId().touched() && recoverAccountForm.recoverId().invalid()) {
+                        <p class="text-sm text-rose-600">Colle ton identifiant pour récupérer le compte.</p>
+                    }
+                </div>
+            </fieldset>
+        </article>
     `,
 })
 export class AccountComponent {
-    recoverId = "";
+	readonly recoverAccountModel = signal({ recoverId: "" });
+	readonly recoverAccountForm = form(this.recoverAccountModel, (schema) => {
+		required(schema.recoverId, { message: "Colle ton identifiant pour récupérer le compte." });
+	});
 
     constructor(protected account: AccountService) {}
 
     recover(): void {
-        this.account.recover(this.recoverId);
+		this.account.recover(this.recoverAccountModel().recoverId);
     }
 }

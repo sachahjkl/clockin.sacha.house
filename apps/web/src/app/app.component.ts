@@ -9,8 +9,10 @@ import { NavComponent } from "./components/nav.component";
     template: `
         <div class="min-h-screen">
             <app-nav />
-            <main class="page-shell pt-6">
-                <router-outlet />
+            <main class="mx-auto w-full max-w-5xl px-4 py-4">
+                <section class="min-h-[300px] rounded-xl bg-white p-4 shadow">
+                    <router-outlet />
+                </section>
             </main>
         </div>
     `,

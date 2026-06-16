@@ -1,8 +1,9 @@
-import { Component, OnInit, computed, inject, signal } from "@angular/core";
+import { Component, OnInit, computed, effect, inject, signal } from "@angular/core";
+import { Router } from "@angular/router";
 import { ApiService } from "../../core/api.service";
 import { AccountService } from "../../core/account.service";
 import { BadgeageButtonComponent } from "../../components/badgeage-button.component";
-import { BadgeagesTableComponent, type TableRow } from "../../components/badgeages-table.component";
+import { BadgeagesTableComponent, type SlotKey, type TableRow } from "../../components/badgeages-table.component";
 import type { Badgeage, Slot } from "../../core/models";
 
 @Component({
@@ -10,35 +11,52 @@ import type { Badgeage, Slot } from "../../core/models";
     standalone: true,
     imports: [BadgeageButtonComponent, BadgeagesTableComponent],
     template: `
-        <div class="space-y-6">
+        <article class="mx-auto w-full min-w-0 max-w-[80rem] space-y-6">
             @if (error()) {
-                <div class="rounded bg-red-100 px-4 py-2 text-red-800">{{ error() }}</div>
+                <div class="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-rose-700 shadow-sm">{{ error() }}</div>
             }
 
-            <div class="flex items-center justify-between">
-                <h1 class="text-2xl font-bold">Bonjour</h1>
+            <section class="flex items-center justify-between gap-3 px-2">
+                <div>
+                    <h1 class="text-2xl font-bold">Accueil</h1>
+                </div>
                 @if (userId()) {
-                    <span class="text-sm text-gray-500">ID: {{ userId() }}</span>
+                    <code class="rounded bg-slate-100 px-3 py-2 text-sm text-slate-600">{{ userId() }}</code>
                 }
-            </div>
+            </section>
 
-            <app-badgeage-button (badge)="badge()" />
+            <section class="flex items-center justify-center py-8">
+                <app-badgeage-button (badge)="badge()" />
+            </section>
 
-            <app-badgeages-table [rows]="rows()" (edit)="onEdit($event)" />
-        </div>
+            <section class="mx-auto w-full min-w-[300px]">
+                <app-badgeages-table [rows]="rows()" (edit)="onEdit($event)" />
+            </section>
+        </article>
     `,
 })
 export class HomeComponent implements OnInit {
     private api = inject(ApiService);
     private account = inject(AccountService);
+	private router = inject(Router);
 
     readonly userId = computed(() => this.account.userId());
     readonly badgeages = signal<Badgeage[]>([]);
     readonly error = signal<string | null>(null);
     readonly rows = computed(() => buildWeekRows(this.badgeages()));
 
+	constructor() {
+		effect(() => {
+			if (!this.account.userId()) {
+				void this.router.navigate(["/account"]);
+			}
+		});
+	}
+
     ngOnInit(): void {
-		this.load().catch((e) => this.error.set(e.message));
+		if (this.account.userId()) {
+			this.load().catch((e) => this.error.set(e.message));
+		}
 	}
 
     async load(): Promise<void> {
@@ -57,18 +75,16 @@ export class HomeComponent implements OnInit {
         }
     }
 
-    async onEdit(event: { slot: string; day: string; current: string }): Promise<void> {
-        const value = prompt("Nouvelle valeur (ISO 8601)", event.current);
-        if (!value) return;
-
+    async onEdit(event: { slot: SlotKey; day: string; value: string }): Promise<void> {
         const record = this.badgeages().find((b) => b.day === event.day);
         if (!record) return;
 
         this.error.set(null);
         try {
+			const timestamp = new Date(`${event.day}T${normalizeTimeValue(event.value)}`).toISOString();
             await this.api.patch<Badgeage>(`/badgeages/${record.id}`, {
                 slot: event.slot,
-                timestamp: new Date(value).toISOString(),
+                timestamp,
             });
             await this.load();
         } catch (e) {
@@ -140,4 +156,8 @@ function computeTotal(b: Badgeage): string {
     const minutes = Math.floor((totalSeconds % 3600) / 60);
     const seconds = totalSeconds % 60;
     return `${hours}h ${minutes}m ${seconds}s`;
+}
+
+function normalizeTimeValue(value: string): string {
+	return value.length === 5 ? `${value}:00` : value;
 }
