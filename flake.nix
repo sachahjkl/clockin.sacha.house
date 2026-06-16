@@ -39,14 +39,14 @@
 						cp -r node_modules $out/
 						cp -r apps/api/dist apps/api/drizzle $out/apps/api/
 						cp -r apps/web/dist/web/browser $out/apps/web/dist/web/
-						cat > $out/bin/clockin <<'EOF'
-#!/usr/bin/env bash
+					cat > $out/bin/clockin <<EOF
+#!${pkgs.bash}/bin/bash
 set -euo pipefail
-export WEB_DIST="${placeholder "out"}/apps/web/dist/web/browser"
-cd "${placeholder "out"}"
-exec ${pkgs.nodejs}/bin/node apps/api/dist/server.js "$@"
+export WEB_DIST="$out/apps/web/dist/web/browser"
+cd "$out"
+exec ${pkgs.nodejs}/bin/node apps/api/dist/server.js "\$@"
 EOF
-						chmod +x $out/bin/clockin
+					chmod +x $out/bin/clockin
 					'';
 				};
 			in
