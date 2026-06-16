@@ -55,6 +55,11 @@ export class ApiService {
         return this.handle<void>(res);
     }
 
+	async getBlob(path: string): Promise<Blob> {
+		const res = await fetch(`${API_BASE}${path}`, { headers: this.headers() });
+		return this.handleBlob(res);
+	}
+
     private async handle<T>(res: Response): Promise<T> {
         if (res.status === 401) {
             this.account.clear();
@@ -70,4 +75,17 @@ export class ApiService {
         }
         return res.json() as Promise<T>;
     }
+
+	private async handleBlob(res: Response): Promise<Blob> {
+		if (res.status === 401) {
+			this.account.clear();
+			await this.router.navigate(["/account"]);
+			throw new Error("Unauthorized");
+		}
+		if (!res.ok) {
+			const err = await res.json().catch(() => ({ error: "Request failed" }));
+			throw new Error(err.error ?? "Request failed");
+		}
+		return res.blob();
+	}
 }

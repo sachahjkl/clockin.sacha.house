@@ -1,14 +1,16 @@
 import { and, asc, between, eq } from "drizzle-orm";
 import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
+import * as XLSX from "xlsx";
 import { z } from "zod";
 import { requireUser } from "../auth.js";
 import { db } from "../db/index.js";
-import { badgeages, type Slot } from "../db/schema.js";
+import { badgeages, type Badgeage, type Slot } from "../db/schema.js";
 
 const slots: Slot[] = ["firstEntry", "firstExit", "secondEntry", "secondExit"];
 const slotSchema = z.enum(["firstEntry", "firstExit", "secondEntry", "secondExit"]);
 const daySchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid date");
 const timestampSchema = z.union([z.string(), z.number()]);
+const exportFormatSchema = z.enum(["csv", "xlsx"]);
 
 function toISODate(date: Date) {
     return date.toISOString().split("T")[0];
@@ -20,7 +22,107 @@ function parseTimestamp(value: string | number) {
     return date.toISOString();
 }
 
+function formatExportTime(value: string | null) {
+	if (!value) return "";
+	return new Intl.DateTimeFormat("fr-FR", {
+		hour: "2-digit",
+		minute: "2-digit",
+		second: "2-digit",
+		hour12: false,
+	}).format(new Date(value));
+}
+
+function computeTotal(record: Badgeage) {
+	let totalSeconds = 0;
+	for (let i = 0; i < slots.length; i += 2) {
+		const start = record[slots[i]];
+		const end = record[slots[i + 1]];
+		if (start && end) {
+			totalSeconds += Math.max(0, Math.floor((new Date(end).getTime() - new Date(start).getTime()) / 1000));
+		}
+	}
+
+	const hours = Math.floor(totalSeconds / 3600);
+	const minutes = Math.floor((totalSeconds % 3600) / 60);
+	const seconds = totalSeconds % 60;
+	return `${hours}h ${minutes}m ${seconds}s`;
+}
+
+function buildExportRows(records: Badgeage[]) {
+	return records.map((record) => ({
+		Jour: record.day,
+		"Entrée 1": formatExportTime(record.firstEntry),
+		"Sortie 1": formatExportTime(record.firstExit),
+		"Entrée 2": formatExportTime(record.secondEntry),
+		"Sortie 2": formatExportTime(record.secondExit),
+		Total: computeTotal(record),
+	}));
+}
+
+function toCsv(rows: Array<Record<string, string>>) {
+	const headers = ["Jour", "Entrée 1", "Sortie 1", "Entrée 2", "Sortie 2", "Total"];
+	const lines = [headers.join(";")];
+
+	for (const row of rows) {
+		lines.push(headers.map((header) => escapeCsvValue(row[header] ?? "")).join(";"));
+	}
+
+	return lines.join("\n");
+}
+
+function escapeCsvValue(value: string) {
+	if (value.includes(";") || value.includes("\"") || value.includes("\n")) {
+		return `"${value.replaceAll("\"", '""')}"`;
+	}
+
+	return value;
+}
+
 const badgeagesRoutes: FastifyPluginAsyncZod = async (fastify) => {
+	fastify.route({
+		method: "GET",
+		url: "/badgeages/export",
+		schema: {
+			querystring: z.object({
+				from: daySchema,
+				to: daySchema,
+				format: exportFormatSchema,
+			}),
+		},
+		handler: async (request, reply) => {
+			const user = requireUser(request);
+			const { from, to, format } = request.query;
+
+			const records = await db
+				.select()
+				.from(badgeages)
+				.where(and(eq(badgeages.userId, user.id), between(badgeages.day, from, to)))
+				.orderBy(asc(badgeages.day))
+				.all();
+
+			const rows = buildExportRows(records);
+			const fileName = `clockin-${from}_to_${to}`;
+
+			if (format === "csv") {
+				reply.header("Content-Type", "text/csv; charset=utf-8");
+				reply.header("Content-Disposition", `attachment; filename="${fileName}.csv"`);
+				return reply.send(Buffer.from(`\uFEFF${toCsv(rows)}`));
+			}
+
+			const worksheet = XLSX.utils.json_to_sheet(rows);
+			const workbook = XLSX.utils.book_new();
+			XLSX.utils.book_append_sheet(workbook, worksheet, "Badgeages");
+			const buffer = XLSX.write(workbook, { type: "buffer", bookType: "xlsx" });
+
+			reply.header(
+				"Content-Type",
+				"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+			);
+			reply.header("Content-Disposition", `attachment; filename="${fileName}.xlsx"`);
+			return reply.send(buffer);
+		},
+	});
+
     fastify.route({
 		method: "GET",
 		url: "/badgeages",
