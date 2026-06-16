@@ -59,7 +59,7 @@ import type { Badgeage } from "../../core/models";
 				<div class="mt-4 flex flex-wrap items-center gap-2">
 					<button
 						type="button"
-						class="inline-flex cursor-pointer items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-400 to-emerald-500 px-4 py-2 text-center font-semibold text-white shadow-sm transition-all hover:from-emerald-500 hover:to-emerald-600 hover:outline hover:outline-black/20 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
+						class="inline-flex cursor-pointer items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-400 to-emerald-500 px-4 py-2 text-center font-semibold text-white shadow-sm transition hover:from-emerald-500 hover:to-emerald-600 hover:outline hover:outline-black/20 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
 						[disabled]="exportPending() || exportRangeInvalid()"
 						(click)="exportCsv()"
 					>
@@ -67,7 +67,7 @@ import type { Badgeage } from "../../core/models";
 					</button>
 					<button
 						type="button"
-						class="inline-flex cursor-pointer items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-blue-400 to-blue-500 px-4 py-2 text-center font-semibold text-white shadow-sm transition-all hover:from-blue-500 hover:to-blue-600 hover:outline hover:outline-black/20 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
+						class="inline-flex cursor-pointer items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-blue-400 to-blue-500 px-4 py-2 text-center font-semibold text-white shadow-sm transition hover:from-blue-500 hover:to-blue-600 hover:outline hover:outline-black/20 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
 						[disabled]="exportPending() || exportRangeInvalid()"
 						(click)="exportXlsx()"
 					>
@@ -117,7 +117,7 @@ import type { Badgeage } from "../../core/models";
                                 <td class="px-4 py-3 text-slate-600">{{ b.secondExit | date: "HH:mm:ss" }}</td>
                                 <td class="px-4 py-3">
                                     <button
-                                        class="inline-flex cursor-pointer items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-rose-400 to-rose-500 px-4 py-1 text-center text-xs font-semibold text-white shadow-sm transition-all hover:from-rose-500 hover:to-rose-600 hover:outline hover:outline-black/20 active:scale-[0.98]"
+                                        class="inline-flex cursor-pointer items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-rose-400 to-rose-500 px-4 py-1 text-center text-xs font-semibold text-white shadow-sm transition hover:from-rose-500 hover:to-rose-600 hover:outline hover:outline-black/20 active:scale-[0.98]"
                                         (click)="remove(b.id)"
                                     >
                                         Supprimer

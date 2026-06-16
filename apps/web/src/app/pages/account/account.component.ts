@@ -25,7 +25,7 @@ import { AccountService } from "../../core/account.service";
 
                 <div class="space-y-3">
                     <span class="block text-sm font-medium text-slate-700">Créer un nouvel accès</span>
-                    <button class="inline-flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-400 to-emerald-500 px-4 py-2 text-center font-semibold text-white shadow-sm transition-all hover:from-emerald-500 hover:to-emerald-600 hover:outline hover:outline-black/20 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto" [disabled]="account.loading()" (click)="account.create()">
+                    <button class="inline-flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-400 to-emerald-500 px-4 py-2 text-center font-semibold text-white shadow-sm transition hover:from-emerald-500 hover:to-emerald-600 hover:outline hover:outline-black/20 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto" [disabled]="account.loading()" (click)="account.create()">
                         @if (account.loading()) {
                             Création…
                         } @else {
@@ -43,7 +43,7 @@ import { AccountService } from "../../core/account.service";
                             [formField]="recoverAccountForm.recoverId"
                             placeholder="Colle ton identifiant"
                         />
-                        <button class="inline-flex cursor-pointer items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-400 to-emerald-500 px-4 py-2 text-center font-semibold text-white shadow-sm transition-all hover:from-emerald-500 hover:to-emerald-600 hover:outline hover:outline-black/20 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50" (click)="recover()" [disabled]="recoverAccountForm.recoverId().invalid()">Récupérer</button>
+                        <button class="inline-flex cursor-pointer items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-400 to-emerald-500 px-4 py-2 text-center font-semibold text-white shadow-sm transition hover:from-emerald-500 hover:to-emerald-600 hover:outline hover:outline-black/20 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50" (click)="recover()" [disabled]="recoverAccountForm.recoverId().invalid()">Récupérer</button>
                     </div>
                     @if (recoverAccountForm.recoverId().touched() && recoverAccountForm.recoverId().invalid()) {
                         <p class="text-sm text-rose-600">Colle ton identifiant pour récupérer le compte.</p>
