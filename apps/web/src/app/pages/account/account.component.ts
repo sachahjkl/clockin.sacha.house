@@ -11,8 +11,8 @@ import { AccountService } from "../../core/account.service";
             <div class="space-y-2">
                 <h1 class="text-2xl font-bold">Compte</h1>
                 <p class="text-slate-600">
-                    Pas de mot de passe. Ton identifiant est stocké dans ce navigateur. Garde-le
-                    précieusement, c'est la seule clé de tes données.
+                    Pas de mot de passe. Ton identifiant est stocké dans ce navigateur.                     <strong>Garde-le
+                    précieusement, c'est la seule clé de tes données.</strong>
                 </p>
             </div>
 
@@ -34,12 +34,14 @@ import { AccountService } from "../../core/account.service";
                     </button>
                 </div>
 
-                <div class="space-y-3">
+                <form class="space-y-3">
                     <label class="block text-sm font-medium text-slate-700">Récupérer un compte existant</label>
                     <div class="flex flex-col gap-2 sm:flex-row">
                         <input
-                            type="text"
-                            class="mt-1 block w-full rounded-xl border border-transparent bg-slate-100 px-3 py-2.5 text-slate-900 outline-none transition focus:border-slate-300 focus:bg-white focus:ring-0"
+                            type="password"
+                            id="identifiant"
+                            autocomplete="current-password"
+                            class="block w-full rounded-xl border border-transparent bg-slate-100 px-3 py-2.5 text-slate-900 outline-none transition focus:border-slate-300 focus:bg-white focus:ring-0"
                             [formField]="recoverAccountForm.recoverId"
                             placeholder="Colle ton identifiant"
                         />
@@ -48,7 +50,7 @@ import { AccountService } from "../../core/account.service";
                     @if (recoverAccountForm.recoverId().touched() && recoverAccountForm.recoverId().invalid()) {
                         <p class="text-sm text-rose-600">Colle ton identifiant pour récupérer le compte.</p>
                     }
-                </div>
+                </form>
             </fieldset>
         </article>
     `,

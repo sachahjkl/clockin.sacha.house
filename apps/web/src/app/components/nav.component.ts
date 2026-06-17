@@ -1,47 +1,68 @@
-import { Component, inject } from "@angular/core";
-import { Router, RouterLink, RouterLinkActive } from "@angular/router";
+import { Component, inject, signal } from "@angular/core";
+import { Router } from "@angular/router";
 import { AccountService } from "../core/account.service";
+import { NavLinkComponent } from "./nav-link.component";
+import { NavButtonComponent } from "./nav-button.component";
 
 @Component({
     selector: "app-nav",
     standalone: true,
-    imports: [RouterLink, RouterLinkActive],
+    imports: [NavLinkComponent, NavButtonComponent],
+    styles: [
+        `
+            @media (min-width: 640px) {
+                .burger-btn {
+                    display: none;
+                }
+            }
+        `,
+    ],
     template: `
-        <header class="sticky top-0 z-20 mb-4 bg-white shadow">
-            <div class="mx-auto w-full max-w-5xl px-4 py-4">
-                <div class="flex flex-wrap items-center justify-between gap-3 sm:flex-nowrap">
+        <header class="sticky top-0 z-20 mb-4 bg-white shadow mx-auto w-full px-4 py-4 space-y-2 ">
+                <div class="flex items-center justify-between min-h-[40px] max-w-5xl mx-auto">
                     <a routerLink="/" class="flex items-center gap-2 text-xl">
                         <span class="text-2xl">⌛</span>
                         <span class="inline-block w-[9ch] bg-gradient-to-tr from-blue-400 to-blue-600 bg-clip-text font-extrabold text-transparent underline decoration-blue-200 underline-offset-4 transition hover:from-green-400 hover:to-green-500">Clock-in</span>
                     </a>
-                    <div class="flex w-full items-center justify-end gap-2 sm:w-auto sm:flex-none">
+                    <div class="flex items-center gap-2">
+                        <div class="items-center gap-2 hidden sm:flex">
+                            @if (account.userId()) {
+                                <nav class="flex items-center gap-2">
+                                    <app-nav-link routerLink="/" [routerLinkActiveOptions]="{ exact: true }">🏠 Accueil</app-nav-link>
+                                    <app-nav-link routerLink="/history">⌛ Historique</app-nav-link>
+                                </nav>
+                                <app-nav-button color="red" (clicked)="logout()">🔓 Déconnexion</app-nav-button>
+                            }
+                        </div>
                         @if (account.userId()) {
-                            <nav class="flex items-center gap-2">
-                                <a routerLink="/" routerLinkActive="active" [routerLinkActiveOptions]="{ exact: true }" class="block rounded-lg bg-gradient-to-r from-blue-400 to-blue-500 px-4 py-2 text-center font-semibold text-white shadow-sm transition hover:from-blue-500 hover:to-blue-600 hover:outline hover:outline-black/20 active:scale-[0.98]" [class.from-blue-500]="homeActive.isActive" [class.to-blue-600]="homeActive.isActive" #homeActive="routerLinkActive">🏠 Accueil</a>
-                                <a routerLink="/history" routerLinkActive="active" class="block rounded-lg bg-gradient-to-r from-blue-400 to-blue-500 px-4 py-2 text-center font-semibold text-white shadow-sm transition hover:from-blue-500 hover:to-blue-600 hover:outline hover:outline-black/20 active:scale-[0.98]" [class.from-blue-500]="historyActive.isActive" [class.to-blue-600]="historyActive.isActive" #historyActive="routerLinkActive">⌛ Historique</a>
-                            </nav>
                             <button
                                 type="button"
-                                (click)="logout()"
-                                class="block cursor-pointer rounded-lg bg-gradient-to-r from-red-400 to-red-500 px-4 py-2 text-center font-semibold text-white shadow-sm transition hover:from-red-500 hover:to-red-600 hover:outline hover:outline-black/20 active:scale-95"
+                                class="burger-btn sm:hidden flex cursor-pointer items-center justify-center rounded-lg p-1 text-2xl text-slate-700 transition hover:bg-slate-100"
+                                (click)="menuOpen.set(!menuOpen())"
                             >
-                                🔓 Déconnexion
+                                {{ menuOpen() ? "✕" : "☰" }}
                             </button>
-                        } @else {
-                            <a routerLink="/account" routerLinkActive="active" class="block rounded-lg bg-gradient-to-r from-blue-400 to-blue-500 px-4 py-2 text-center font-semibold text-white shadow-sm transition hover:from-blue-500 hover:to-blue-600 hover:outline hover:outline-black/20 active:scale-[0.98]" [class.from-blue-500]="accountActive.isActive" [class.to-blue-600]="accountActive.isActive" #accountActive="routerLinkActive">Compte</a>
                         }
                     </div>
                 </div>
-            </div>
+                @if (menuOpen()) {
+                    <div class="mobile-menu bg-white shadow-sm flex flex-col gap-1 sm:hidden">
+                        <app-nav-link routerLink="/" [routerLinkActiveOptions]="{ exact: true }" (click)="menuOpen.set(false)">🏠 Accueil</app-nav-link>
+                        <app-nav-link routerLink="/history" (click)="menuOpen.set(false)">⌛ Historique</app-nav-link>
+                        <app-nav-button color="red" (clicked)="logout()">🔓 Déconnexion</app-nav-button>
+                    </div>
+                }
         </header>
     `,
 })
 export class NavComponent {
-	protected account = inject(AccountService);
-	private router = inject(Router);
+    protected account = inject(AccountService);
+    private router = inject(Router);
+    protected menuOpen = signal(false);
 
     async logout(): Promise<void> {
-		this.account.clear();
-		await this.router.navigate(["/account"]);
-	}
+        this.menuOpen.set(false);
+        this.account.clear();
+        await this.router.navigate(["/account"]);
+    }
 }

@@ -97,25 +97,25 @@ import type { Badgeage } from "../../core/models";
                     <table class="w-full border-separate border-spacing-0 text-left text-sm">
                         <thead class="bg-slate-100 text-slate-600">
                         <tr>
-                            <th class="px-4 py-3 font-semibold">Jour</th>
-                            <th class="px-4 py-3 font-semibold">Entrée 1</th>
-                            <th class="px-4 py-3 font-semibold">Sortie 1</th>
-                            <th class="px-4 py-3 font-semibold">Entrée 2</th>
-                            <th class="px-4 py-3 font-semibold">Sortie 2</th>
-                            <th class="px-4 py-3 font-semibold"></th>
+                            <th class="whitespace-nowrap px-4 py-3 font-semibold">Jour</th>
+                            <th class="whitespace-nowrap px-4 py-3 font-semibold">Entrée 1</th>
+                            <th class="whitespace-nowrap px-4 py-3 font-semibold">Sortie 1</th>
+                            <th class="whitespace-nowrap px-4 py-3 font-semibold">Entrée 2</th>
+                            <th class="whitespace-nowrap px-4 py-3 font-semibold">Sortie 2</th>
+                            <th class="whitespace-nowrap px-4 py-3 font-semibold"></th>
                         </tr>
                         </thead>
                         <tbody class="bg-white">
                         @for (b of badgeages(); track b.id) {
                             <tr class="border-t border-slate-100">
-                                <td class="px-4 py-3 font-semibold text-slate-800">
+                                <td class="whitespace-nowrap px-4 py-3 font-semibold text-slate-800">
                                     {{ b.day | date: "mediumDate" }}
                                 </td>
-                                <td class="px-4 py-3 text-slate-600">{{ b.firstEntry | date: "HH:mm:ss" }}</td>
-                                <td class="px-4 py-3 text-slate-600">{{ b.firstExit | date: "HH:mm:ss" }}</td>
-                                <td class="px-4 py-3 text-slate-600">{{ b.secondEntry | date: "HH:mm:ss" }}</td>
-                                <td class="px-4 py-3 text-slate-600">{{ b.secondExit | date: "HH:mm:ss" }}</td>
-                                <td class="px-4 py-3">
+                                <td class="whitespace-nowrap px-4 py-3 text-slate-600">{{ b.firstEntry | date: "HH:mm:ss" }}</td>
+                                <td class="whitespace-nowrap px-4 py-3 text-slate-600">{{ b.firstExit | date: "HH:mm:ss" }}</td>
+                                <td class="whitespace-nowrap px-4 py-3 text-slate-600">{{ b.secondEntry | date: "HH:mm:ss" }}</td>
+                                <td class="whitespace-nowrap px-4 py-3 text-slate-600">{{ b.secondExit | date: "HH:mm:ss" }}</td>
+                                <td class="whitespace-nowrap px-4 py-3">
                                     <button
                                         class="inline-flex cursor-pointer items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-rose-400 to-rose-500 px-4 py-1 text-center text-xs font-semibold text-white shadow-sm transition hover:from-rose-500 hover:to-rose-600 hover:outline hover:outline-black/20 active:scale-[0.98]"
                                         (click)="remove(b.id)"

@@ -1,10 +1,21 @@
-import { Component, input, output, signal } from "@angular/core";
+import { Component, input, output, signal, Directive, ElementRef, AfterViewInit } from "@angular/core";
 import { DatePipe } from "@angular/common";
+
+@Directive({
+    selector: "[autoFocus]",
+    standalone: true,
+})
+export class AutoFocusDirective implements AfterViewInit {
+    constructor(private el: ElementRef<HTMLElement>) {}
+    ngAfterViewInit() {
+        this.el.nativeElement.focus();
+    }
+}
 
 @Component({
     selector: "app-badgeages-table",
     standalone: true,
-    imports: [DatePipe],
+    imports: [DatePipe, AutoFocusDirective],
     template: `
 		<section class="overflow-hidden rounded-xl bg-white shadow">
 			<div class="px-5 py-4 sm:px-6">
@@ -15,51 +26,51 @@ import { DatePipe } from "@angular/common";
 				<table class="w-full border-separate border-spacing-0 text-left text-sm">
 					<thead class="bg-slate-100 text-slate-600">
 					<tr>
-						<th class="px-4 py-3 font-semibold">Jour</th>
-						<th class="px-4 py-3 font-semibold">Entrée 1</th>
-						<th class="px-4 py-3 font-semibold">Sortie 1</th>
-						<th class="px-4 py-3 font-semibold">Entrée 2</th>
-						<th class="px-4 py-3 font-semibold">Sortie 2</th>
-						<th class="px-4 py-3 font-semibold">Total</th>
+						<th class="whitespace-nowrap px-4 py-3 font-semibold">Jour</th>
+						<th class="whitespace-nowrap px-4 py-3 font-semibold">Entrée 1</th>
+						<th class="whitespace-nowrap px-4 py-3 font-semibold">Sortie 1</th>
+						<th class="whitespace-nowrap px-4 py-3 font-semibold">Entrée 2</th>
+						<th class="whitespace-nowrap px-4 py-3 font-semibold">Sortie 2</th>
+						<th class="whitespace-nowrap px-4 py-3 font-semibold">Total</th>
 					</tr>
 					</thead>
 					<tbody class="bg-white">
 					@for (row of rows(); track row.day) {
 						<tr class="align-middle border-t border-slate-100">
-							<td class="px-4 py-3 font-semibold text-slate-800">{{ row.day | date: 'EEE d MMM' }}</td>
+							<td class="whitespace-nowrap px-4 py-3 font-semibold text-slate-800">{{ row.day | date: 'EEE d MMM' }}</td>
 							@for (slot of slots; track slot) {
 								<td class="px-4 py-3 text-slate-600">
 									@if (row[slot]; as value) {
-										@if (isEditing(row.day, slot)) {
-											<input
-												autofocus
-												type="text"
-												inputmode="numeric"
-												placeholder="08:30:00"
-												class="block w-28 rounded-lg border border-transparent bg-slate-100 px-2 py-1 text-sm text-slate-900 outline-none transition focus:border-slate-300 focus:bg-white focus:ring-0"
-												[class.!border-rose-300]="invalidDraft()"
-												[class.!bg-rose-50]="invalidDraft()"
-												[value]="draftValue()"
-												(input)="draftValue.set($any($event.target).value); invalidDraft.set(false)"
-												(blur)="saveEdit(row.day, slot)"
-												(keydown.enter)="saveEdit(row.day, slot)"
-												(keydown.escape)="cancelEdit()"
-											/>
+                                        @if (isEditing(row.day, slot)) {
+                                            <input
+                                                type="text"
+                                                inputmode="numeric"
+                                                placeholder="08:30:00"
+                                                class="block w-28 rounded-lg border border-transparent bg-slate-100 px-2 py-1 text-sm text-slate-900 outline-none transition focus:border-slate-300 focus:bg-white focus:ring-0"
+                                                [class.!border-rose-300]="invalidDraft()"
+                                                [class.!bg-rose-50]="invalidDraft()"
+                                                [value]="draftValue()"
+                                                autoFocus
+                                                (input)="draftValue.set($any($event.target).value); invalidDraft.set(false)"
+                                                (blur)="saveEdit(row.day, slot)"
+                                                (keydown.enter)="saveEdit(row.day, slot)"
+                                                (keydown.escape)="cancelEdit()"
+                                            />
 										} @else {
-											<button
-												type="button"
-												class="rounded-lg px-2 py-1 font-medium text-slate-700 transition hover:bg-slate-100 hover:text-sky-700 hover:underline"
-												(click)="startEdit(row.day, slot, value)"
-											>
-												{{ value | date: 'HH:mm:ss' }}
+                                        <button
+                                                type="button"
+                                                class="inline-flex w-28 justify-start rounded-lg px-2 py-1 font-medium text-slate-700 transition hover:bg-slate-100 hover:text-sky-700 hover:underline"
+                                                (click)="startEdit(row.day, slot, value)"
+                                            >
+                                                {{ value | date: 'HH:mm:ss' }}
 											</button>
 										}
 									} @else {
-										<span class="text-slate-300">N/A</span>
+										<span class="inline-flex w-28 items-center px-2 text-slate-300">N/A</span>
 									}
 								</td>
 							}
-							<td class="px-4 py-3 font-bold text-slate-900">{{ row.total }}</td>
+							<td class="whitespace-nowrap px-4 py-3 font-bold text-slate-900">{{ row.total }}</td>
 						</tr>
 					} @empty {
 						<tr>

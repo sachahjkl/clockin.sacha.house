@@ -4,24 +4,25 @@ import { ApiService } from "../../core/api.service";
 import { AccountService } from "../../core/account.service";
 import { BadgeageButtonComponent } from "../../components/badgeage-button.component";
 import { BadgeagesTableComponent, type SlotKey, type TableRow } from "../../components/badgeages-table.component";
+import { CopyableIdComponent } from "../../components/copyable-id.component";
 import type { Badgeage, Slot } from "../../core/models";
 
 @Component({
     selector: "app-home",
     standalone: true,
-    imports: [BadgeageButtonComponent, BadgeagesTableComponent],
+    imports: [BadgeageButtonComponent, BadgeagesTableComponent, CopyableIdComponent],
     template: `
         <article class="mx-auto w-full min-w-0 max-w-[80rem] space-y-6">
             @if (error()) {
                 <div class="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-rose-700 shadow-sm">{{ error() }}</div>
             }
 
-            <section class="flex items-center justify-between gap-3 px-2">
+            <section class="flex items-center justify-between flex-wrap gap-3 px-2">
                 <div>
                     <h1 class="text-2xl font-bold">Accueil</h1>
                 </div>
                 @if (userId()) {
-                    <code class="rounded bg-slate-100 px-3 py-2 text-sm text-slate-600">{{ userId() }}</code>
+                    <app-copyable-id [id]="userId()!" />
                 }
             </section>
 
