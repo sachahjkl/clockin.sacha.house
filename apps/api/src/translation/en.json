@@ -18,6 +18,7 @@
         "unauthorized": "Unauthorized",
         "notFound": "Not found",
         "allSlotsFilled": "All time entry slots are already filled for today.",
-        "requestFailed": "Request failed"
+        "requestFailed": "Request failed",
+        "accountNotFound": "No account found with this identifier"
     }
 }

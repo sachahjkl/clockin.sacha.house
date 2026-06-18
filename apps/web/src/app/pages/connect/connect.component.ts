@@ -1,7 +1,14 @@
-import { Component, inject, signal } from "@angular/core";
-import { FormField, form, required } from "@angular/forms/signals";
+import { Component, effect, inject, signal } from "@angular/core";
+import { debounced } from "@angular/core";
+import { form, FormField, required } from "@angular/forms/signals";
 import { AccountService } from "../../core/account.service";
 import { I18nService } from "../../core/i18n.service";
+
+interface RecoverModel {
+    recoverId: string;
+}
+
+type IdStatus = "idle" | "checking" | "valid" | "invalid";
 
 @Component({
     selector: "app-connect",
@@ -25,7 +32,11 @@ import { I18nService } from "../../core/i18n.service";
 
                 <div class="space-y-3">
                     <span class="block text-sm font-medium text-slate-700">{{ i18n.t("account.createAccess") }}</span>
-                    <button class="inline-flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-400 to-emerald-500 px-4 py-2 text-center font-semibold text-white shadow-sm transition hover:from-emerald-500 hover:to-emerald-600 hover:outline hover:outline-black/20 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto" [disabled]="account.loading()" (click)="account.create()">
+                    <button
+                        class="inline-flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-400 to-emerald-500 px-4 py-2 text-center font-semibold text-white shadow-sm transition hover:from-emerald-500 hover:to-emerald-600 hover:outline hover:outline-black/20 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
+                        [disabled]="account.loading()"
+                        (click)="account.create()"
+                    >
                         @if (account.loading()) {
                             {{ i18n.t("account.creating") }}
                         } @else {
@@ -34,23 +45,48 @@ import { I18nService } from "../../core/i18n.service";
                     </button>
                 </div>
 
-                <form class="space-y-3">
+                <section class="space-y-4">
                     <label class="block text-sm font-medium text-slate-700">{{ i18n.t("account.recoverAccess") }}</label>
-                    <div class="flex flex-col gap-2 sm:flex-row">
+                    <form class="flex flex-col gap-2 sm:flex-row" (submit)="onSubmit($event)">
                         <input
                             type="password"
                             id="identifiant"
                             autocomplete="current-password"
-                            class="block w-full rounded-xl border border-transparent bg-slate-100 px-3 py-2.5 text-slate-900 outline-none transition focus:border-slate-300 focus:bg-white focus:ring-0"
-                            [formField]="recoverAccountForm.recoverId"
+                            class="block w-full rounded-xl border px-3 py-2.5 text-slate-900 outline-none transition focus:ring-0"
+                            [class.border-transparent]="!recoverForm.recoverId().touched() || recoverForm.recoverId().valid()"
+                            [class.border-rose-300]="recoverForm.recoverId().touched() && recoverForm.recoverId().invalid()"
+                            [class.bg-rose-50]="recoverForm.recoverId().touched() && recoverForm.recoverId().invalid()"
+                            [class.bg-slate-100]="!recoverForm.recoverId().touched() || recoverForm.recoverId().valid()"
+                            [class.focus:border-slate-300]="!recoverForm.recoverId().touched() || recoverForm.recoverId().valid()"
+                            [class.focus:border-rose-300]="recoverForm.recoverId().touched() && recoverForm.recoverId().invalid()"
+                            [formField]="recoverForm.recoverId"
                             [placeholder]="i18n.t('account.pasteId')"
                         />
-                        <button class="inline-flex cursor-pointer items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-400 to-emerald-500 px-4 py-2 text-center font-semibold text-white shadow-sm transition hover:from-emerald-500 hover:to-emerald-600 hover:outline hover:outline-black/20 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50" (click)="recover()" [disabled]="recoverAccountForm.recoverId().invalid()">{{ i18n.t("account.recover") }}</button>
-                    </div>
-                    @if (recoverAccountForm.recoverId().touched() && recoverAccountForm.recoverId().invalid()) {
-                        <p class="text-sm text-rose-600">{{ i18n.t("account.requiredId") }}</p>
+                        <button type="submit"
+                            class="text-center basis-[30%] rounded-xl bg-gradient-to-r px-4 py-2 text-center font-semibold text-white shadow-sm transition hover:outline hover:outline-black/20 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
+                            [class.from-emerald-400]="idStatus() === 'valid'"
+                            [class.to-emerald-500]="idStatus() === 'valid'"
+                            [class.hover:from-emerald-500]="idStatus() === 'valid'"
+                            [class.hover:to-emerald-600]="idStatus() === 'valid'"
+                            [class.from-sky-400]="idStatus() !== 'valid'"
+                            [class.to-sky-500]="idStatus() !== 'valid'"
+                            [class.hover:from-sky-500]="idStatus() !== 'valid'"
+                            [class.hover:to-sky-600]="idStatus() !== 'valid'"
+                            [disabled]="idStatus() !== 'valid' || account.loading()"
+                        >
+                            @if (idStatus() === 'checking') {
+                                {{ i18n.t("account.recovering") }}
+                            } @else if (idStatus() === 'valid') {
+                                ✓ {{ i18n.t("account.recover") }}
+                            } @else {
+                                {{ i18n.t("account.recover") }}
+                            }
+                        </button>
+                    </form>
+                    @if (idStatus() === 'invalid' && idError()) {
+                        <p class="text-sm text-rose-600">{{ idError() }}</p>
                     }
-                </form>
+                </section>
             </fieldset>
         </article>
     `,
@@ -58,12 +94,54 @@ import { I18nService } from "../../core/i18n.service";
 export class ConnectComponent {
     protected readonly account = inject(AccountService);
     protected readonly i18n = inject(I18nService);
-    readonly recoverAccountModel = signal({ recoverId: "" });
-    readonly recoverAccountForm = form(this.recoverAccountModel, (schema) => {
+    readonly idStatus = signal<IdStatus>("idle");
+    readonly idError = signal<string | null>(null);
+
+    private readonly recoverModel = signal<RecoverModel>({ recoverId: "" });
+    readonly recoverForm = form(this.recoverModel, (schema) => {
         required(schema.recoverId, { message: this.i18n.t("account.requiredId") });
     });
 
-    recover(): void {
-        this.account.recover(this.recoverAccountModel().recoverId);
+    private readonly debouncedId = debounced(() => this.recoverForm.recoverId().value(), 150);
+
+    constructor() {
+        effect(() => {
+            const id = this.debouncedId.value();
+            if (!id?.trim()) {
+                this.idStatus.set("idle");
+                this.idError.set(null);
+                return;
+            }
+            void this.verify(id);
+        });
+    }
+
+    private async verify(id: string): Promise<void> {
+        this.idStatus.set("checking");
+        this.idError.set(null);
+        try {
+            const res = await fetch("/api/auth/verify", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ userId: id.trim() }),
+            });
+            if (res.status === 404) {
+                this.idStatus.set("invalid");
+                this.idError.set(this.i18n.t("account.unknown"));
+            } else if (res.ok) {
+                this.idStatus.set("valid");
+            } else {
+                this.idStatus.set("invalid");
+                this.idError.set(this.i18n.t("errors.requestFailed"));
+            }
+        } catch {
+            this.idStatus.set("invalid");
+            this.idError.set(this.i18n.t("errors.requestFailed"));
+        }
+    }
+
+    onSubmit(event: Event): void {
+        event.preventDefault();
+        this.account.recover(this.recoverModel().recoverId);
     }
 }

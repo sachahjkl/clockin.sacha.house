@@ -1,5 +1,6 @@
 import { Injectable, inject, signal } from "@angular/core";
 import { Router } from "@angular/router";
+import { I18nService } from "./i18n.service";
 
 const STORAGE_KEY = "clockin_user_id";
 const WELCOME_WIZARD_STORAGE_KEY = "clockin_pending_welcome_wizard";
@@ -9,6 +10,7 @@ const WELCOME_WIZARD_STORAGE_KEY = "clockin_pending_welcome_wizard";
 })
 export class AccountService {
     private readonly router = inject(Router);
+    private readonly i18n = inject(I18nService);
     readonly userId = signal<string | null>(null);
     readonly loading = signal(false);
     readonly error = signal<string | null>(null);
@@ -36,7 +38,7 @@ export class AccountService {
             const data = (await res.json()) as { userId: string };
             this.setUserId(data.userId);
             this.openWelcomeWizard();
-            await this.router.navigate(["/clockin"]);
+            this.router.navigate(["/clockin"]);
             return true;
         } catch (e) {
             this.error.set(e instanceof Error ? e.message : "Failed");
@@ -46,10 +48,31 @@ export class AccountService {
         }
     }
 
-    recover(id: string): void {
+    async recover(id: string): Promise<void> {
         if (!id.trim()) return;
-        this.setUserId(id.trim());
-        this.router.navigate(["/clockin"]);
+        this.loading.set(true);
+        this.error.set(null);
+        try {
+            const res = await fetch("/api/auth/verify", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ userId: id.trim() }),
+            });
+            if (res.status === 404) {
+                this.error.set(this.i18n.t("account.unknown"));
+                return;
+            }
+            if (!res.ok) {
+                this.error.set(this.i18n.t("errors.requestFailed"));
+                return;
+            }
+            this.setUserId(id.trim());
+            this.router.navigate(["/clockin"]);
+        } catch {
+            this.error.set(this.i18n.t("errors.requestFailed"));
+        } finally {
+            this.loading.set(false);
+        }
     }
 
     clear(): void {

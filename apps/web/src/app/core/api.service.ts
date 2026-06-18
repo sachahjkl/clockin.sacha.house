@@ -19,13 +19,13 @@ export class ApiService {
         private router: Router,
     ) {}
 
-    private headers(options : HeaderOptions = {withContent: true}): Record<string, string> {
+    private headers(options: HeaderOptions = { withContent: true }): Record<string, string> {
         const userId = this.account.userId();
         const h: Record<string, string> = {
             "Accept-Language": this.i18n.language(),
         };
 
-        if(options.withContent) {
+        if (options.withContent) {
             h["Content-Type"] = "application/json";
         }
 
@@ -61,7 +61,7 @@ export class ApiService {
     async delete(path: string): Promise<void> {
         const res = await fetch(`${API_BASE}${path}`, {
             method: "DELETE",
-            headers: this.headers({withContent: false}),
+            headers: this.headers({ withContent: false }),
         });
         return this.handle<void>(res);
     }

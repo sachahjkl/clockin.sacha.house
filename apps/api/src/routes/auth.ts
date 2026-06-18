@@ -1,9 +1,11 @@
 import { eq } from "drizzle-orm";
 import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
+import { z } from "zod";
 import { randomInt } from "node:crypto";
 import sqids from "sqids";
 import { db } from "../db/index.js";
 import { users } from "../db/schema.js";
+import { translateRequest } from "../translation/index.js";
 
 const encoder = new sqids({ minLength: 8 });
 
@@ -43,6 +45,28 @@ const authRoutes: FastifyPluginAsyncZod = async (fastify) => {
                 .get();
 
             return reply.status(201).send(user);
+        },
+    );
+
+    fastify.post(
+        "/auth/verify",
+        {
+            schema: {
+                body: z.object({ userId: z.string().min(1) }),
+            },
+        },
+        async (request, reply) => {
+            const user = await db
+                .select()
+                .from(users)
+                .where(eq(users.userId, request.body.userId))
+                .get();
+            if (!user) {
+                return reply
+                    .status(404)
+                    .send({ error: translateRequest(request, "errors.accountNotFound") });
+            }
+            return reply.status(200).send({ exists: true });
         },
     );
 };
