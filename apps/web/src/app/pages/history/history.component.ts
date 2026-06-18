@@ -67,24 +67,26 @@ const HISTORY_PAGE_SIZE = 500;
                     </div>
                 </div>
 
-                <div class="mt-4 flex flex-wrap items-center gap-2">
-                    <button
-                        type="button"
-                        class="inline-flex cursor-pointer items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-400 to-emerald-500 px-4 py-2 text-center font-semibold text-white shadow-sm transition hover:from-emerald-500 hover:to-emerald-600 hover:outline hover:outline-black/20 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
-                        [disabled]="exportPending() || exportRangeInvalid()"
-                        (click)="exportCsv()"
-                    >
-                        {{ i18n.t("history.exportCsv") }}
-                    </button>
-                    <button
-                        type="button"
-                        class="inline-flex cursor-pointer items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-blue-400 to-blue-500 px-4 py-2 text-center font-semibold text-white shadow-sm transition hover:from-blue-500 hover:to-blue-600 hover:outline hover:outline-black/20 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
-                        [disabled]="exportPending() || exportRangeInvalid()"
-                        (click)="exportXlsx()"
-                    >
-                        {{ i18n.t("history.exportXlsx") }}
-                    </button>
-                    <label class="ml-6 inline-flex cursor-pointer items-center gap-2 text-sm text-slate-600">
+                <div class="mt-4 flex flex-wrap items-center gap-6 gap-y-4">
+                    <section class="flex flex-wrap gap-4">
+                        <button
+                            type="button"
+                            class="inline-flex cursor-pointer items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-400 to-emerald-500 px-4 py-2 text-center font-semibold text-white shadow-sm transition hover:from-emerald-500 hover:to-emerald-600 hover:outline hover:outline-black/20 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
+                            [disabled]="exportPending() || exportRangeInvalid()"
+                            (click)="exportCsv()"
+                        >
+                            {{ i18n.t("history.exportCsv") }}
+                        </button>
+                        <button
+                            type="button"
+                            class="inline-flex cursor-pointer items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-blue-400 to-blue-500 px-4 py-2 text-center font-semibold text-white shadow-sm transition hover:from-blue-500 hover:to-blue-600 hover:outline hover:outline-black/20 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
+                            [disabled]="exportPending() || exportRangeInvalid()"
+                            (click)="exportXlsx()"
+                        >
+                            {{ i18n.t("history.exportXlsx") }}
+                        </button>
+                    </section>
+                    <label class="inline-flex cursor-pointer items-center gap-2 text-sm text-slate-600">
                         <input
                             type="checkbox"
                             class="h-5 w-5 cursor-pointer rounded border-slate-400 accent-sky-600"
