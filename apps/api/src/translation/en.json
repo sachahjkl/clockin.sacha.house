@@ -1,0 +1,23 @@
+{
+    "export": {
+        "badgeages": {
+            "headers": {
+                "day": "Day",
+                "firstEntry": "Entry 1",
+                "firstExit": "Exit 1",
+                "secondEntry": "Entry 2",
+                "secondExit": "Exit 2",
+                "total": "Total"
+            },
+            "rows": {
+                "total": "TOTAL"
+            }
+        }
+    },
+    "errors": {
+        "unauthorized": "Unauthorized",
+        "notFound": "Not found",
+        "allSlotsFilled": "All time entry slots are already filled for today.",
+        "requestFailed": "Request failed"
+    }
+}

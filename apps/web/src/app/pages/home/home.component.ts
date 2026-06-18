@@ -3,23 +3,40 @@ import { Router } from "@angular/router";
 import { ApiService } from "../../core/api.service";
 import { AccountService } from "../../core/account.service";
 import { BadgeageButtonComponent } from "../../components/badgeage-button.component";
-import { BadgeagesTableComponent, type SlotKey, type TableRow } from "../../components/badgeages-table.component";
+import {
+    BadgeagesTableComponent,
+    type SlotKey,
+    type TableRow,
+} from "../../components/badgeages-table.component";
 import { CopyableIdComponent } from "../../components/copyable-id.component";
-import type { Badgeage, Slot } from "../../core/models";
+import { WelcomeWizardComponent } from "../../components/welcome-wizard.component";
+import { I18nService } from "../../core/i18n.service";
+import type { Badgeage, Slot, User } from "../../core/models";
 
 @Component({
     selector: "app-home",
     standalone: true,
-    imports: [BadgeageButtonComponent, BadgeagesTableComponent, CopyableIdComponent],
+    imports: [
+        BadgeageButtonComponent,
+        BadgeagesTableComponent,
+        CopyableIdComponent,
+        WelcomeWizardComponent,
+    ],
     template: `
         <article class="mx-auto w-full min-w-0 max-w-[80rem] space-y-6">
-            @if (error()) {
-                <div class="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-rose-700 shadow-sm">{{ error() }}</div>
+            @if (account.welcomeWizardOpen() && userId()) {
+                <app-welcome-wizard [userId]="userId()!" (close)="account.dismissWelcomeWizard()" />
             }
 
             <section class="flex items-center justify-between flex-wrap gap-3 px-2">
                 <div>
-                    <h1 class="text-2xl font-bold">Accueil</h1>
+                    <h1 class="text-2xl font-bold">
+                        @if (profileName()) {
+                            {{ i18n.t("clockin.greeting") }} {{ profileName() }}
+                        } @else {
+                            {{ i18n.t("app.clockin") }}
+                        }
+                    </h1>
                 </div>
                 @if (userId()) {
                     <app-copyable-id [id]="userId()!" />
@@ -30,40 +47,64 @@ import type { Badgeage, Slot } from "../../core/models";
                 <app-badgeage-button (badge)="badge()" />
             </section>
 
+            @if (error()) {
+                <div
+                    class="mx-auto max-w-xl rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-center text-rose-700 shadow-sm"
+                >
+                    {{ error() }}
+                </div>
+            }
+
             <section class="mx-auto w-full min-w-[300px]">
-                <app-badgeages-table [rows]="rows()" (edit)="onEdit($event)" />
+                <app-badgeages-table
+                    [rows]="rows()"
+                    [weekTotal]="weekTotal()"
+                    (edit)="onEdit($event)"
+                />
             </section>
         </article>
     `,
 })
 export class HomeComponent implements OnInit {
     private api = inject(ApiService);
-    private account = inject(AccountService);
-	private router = inject(Router);
+    protected readonly account = inject(AccountService);
+    protected readonly i18n = inject(I18nService);
+    private router = inject(Router);
 
     readonly userId = computed(() => this.account.userId());
     readonly badgeages = signal<Badgeage[]>([]);
+    readonly profile = signal<User | null>(null);
+    readonly profileName = computed(() => this.profile()?.name?.trim() ?? "");
     readonly error = signal<string | null>(null);
     readonly rows = computed(() => buildWeekRows(this.badgeages()));
+    readonly weekTotal = computed(() =>
+        formatDuration(
+            this.badgeages().reduce((total, badgeage) => total + computeTotalSeconds(badgeage), 0),
+        ),
+    );
 
-	constructor() {
-		effect(() => {
-			if (!this.account.userId()) {
-				void this.router.navigate(["/account"]);
-			}
-		});
-	}
+    constructor() {
+        effect(() => {
+            if (!this.account.userId()) {
+                void this.router.navigate(["/connect"]);
+            }
+        });
+    }
 
     ngOnInit(): void {
-		if (this.account.userId()) {
-			this.load().catch((e) => this.error.set(e.message));
-		}
-	}
+        if (this.account.userId()) {
+            this.load().catch((e) => this.error.set(e.message));
+        }
+    }
 
     async load(): Promise<void> {
         const { from, to } = weekRange();
-        const data = await this.api.get<Badgeage[]>(`/badgeages?from=${from}&to=${to}`);
-        this.badgeages.set(data);
+        const [profile, badgeages] = await Promise.all([
+            this.api.get<User>("/me"),
+            this.api.get<Badgeage[]>(`/badgeages?from=${from}&to=${to}`),
+        ]);
+        this.profile.set(profile);
+        this.badgeages.set(badgeages);
     }
 
     async badge(): Promise<void> {
@@ -82,7 +123,9 @@ export class HomeComponent implements OnInit {
 
         this.error.set(null);
         try {
-			const timestamp = new Date(`${event.day}T${normalizeTimeValue(event.value)}`).toISOString();
+            const timestamp = new Date(
+                `${event.day}T${normalizeTimeValue(event.value)}`,
+            ).toISOString();
             await this.api.patch<Badgeage>(`/badgeages/${record.id}`, {
                 slot: event.slot,
                 timestamp,
@@ -126,26 +169,26 @@ function buildWeekRows(badgeages: Badgeage[]): TableRow[] {
             firstExit: record?.firstExit ?? null,
             secondEntry: record?.secondEntry ?? null,
             secondExit: record?.secondExit ?? null,
-            total: record ? computeTotal(record) : "-",
+            total: record ? formatDuration(computeTotalSeconds(record)) : "-",
         });
     }
     return rows;
 }
 
 function startOfWorkWeek() {
-	const start = new Date();
-	const day = start.getDay();
-	const diff = start.getDate() - day + (day === 0 ? -6 : 1);
-	start.setDate(diff);
-	return start;
+    const start = new Date();
+    const day = start.getDay();
+    const diff = start.getDate() - day + (day === 0 ? -6 : 1);
+    start.setDate(diff);
+    return start;
 }
 
-function computeTotal(b: Badgeage): string {
+function computeTotalSeconds(badgeage: Badgeage): number {
     const slots: Slot[] = ["firstEntry", "firstExit", "secondEntry", "secondExit"];
     let totalSeconds = 0;
     for (let i = 0; i < slots.length; i += 2) {
-        const start = b[slots[i]];
-        const end = b[slots[i + 1]];
+        const start = badgeage[slots[i]];
+        const end = badgeage[slots[i + 1]];
         if (start && end) {
             totalSeconds += Math.max(
                 0,
@@ -153,6 +196,11 @@ function computeTotal(b: Badgeage): string {
             );
         }
     }
+
+    return totalSeconds;
+}
+
+function formatDuration(totalSeconds: number): string {
     const hours = Math.floor(totalSeconds / 3600);
     const minutes = Math.floor((totalSeconds % 3600) / 60);
     const seconds = totalSeconds % 60;
@@ -160,5 +208,5 @@ function computeTotal(b: Badgeage): string {
 }
 
 function normalizeTimeValue(value: string): string {
-	return value.length === 5 ? `${value}:00` : value;
+    return value.length === 5 ? `${value}:00` : value;
 }

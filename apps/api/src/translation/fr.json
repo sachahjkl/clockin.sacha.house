@@ -1,0 +1,23 @@
+{
+    "export": {
+        "badgeages": {
+            "headers": {
+                "day": "Jour",
+                "firstEntry": "Entrée 1",
+                "firstExit": "Sortie 1",
+                "secondEntry": "Entrée 2",
+                "secondExit": "Sortie 2",
+                "total": "Total"
+            },
+            "rows": {
+                "total": "TOTAL"
+            }
+        }
+    },
+    "errors": {
+        "unauthorized": "Non autorisé",
+        "notFound": "Introuvable",
+        "allSlotsFilled": "Tous les créneaux de badgeage sont déjà remplis pour aujourd'hui.",
+        "requestFailed": "La requête a échoué"
+    }
+}

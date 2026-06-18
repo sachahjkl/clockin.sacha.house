@@ -12,14 +12,15 @@ import { db } from "./db/index.js";
 import authRoutes from "./routes/auth.js";
 import meRoutes from "./routes/me.js";
 import badgeagesRoutes from "./routes/badgeages.js";
+import { translateRequest } from "./translation/index.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const PORT = Number(process.env.PORT ?? 3000);
 const HOST = process.env.HOST ?? "127.0.0.1";
 const corsOrigin = process.env.CORS_ORIGIN
-	? process.env.CORS_ORIGIN.split(",").map((origin) => origin.trim())
-	: false;
+    ? process.env.CORS_ORIGIN.split(",").map((origin) => origin.trim())
+    : false;
 
 const staticPath = process.env.WEB_DIST
     ? path.resolve(process.env.WEB_DIST)
@@ -35,9 +36,9 @@ async function main() {
     fastify.addHook("onRequest", populateUser);
 
     await fastify.register(cors, {
-		origin: corsOrigin,
-		credentials: Array.isArray(corsOrigin) && corsOrigin.length > 0,
-	});
+        origin: corsOrigin,
+        credentials: Array.isArray(corsOrigin) && corsOrigin.length > 0,
+    });
     await fastify.register(rateLimit, { global: false });
 
     await fastify.register(authRoutes, { prefix: "/api" });
@@ -50,11 +51,11 @@ async function main() {
     });
 
     fastify.setNotFoundHandler((request, reply) => {
-		if (!request.url.startsWith("/api") && request.method === "GET") {
-			return reply.sendFile("index.html", staticPath);
-		}
+        if (!request.url.startsWith("/api") && request.method === "GET") {
+            return reply.sendFile("index.html", staticPath);
+        }
 
-		return reply.status(404).send({ error: "Not found" });
+        return reply.status(404).send({ error: translateRequest(request, "errors.notFound") });
     });
 
     await fastify.listen({ port: PORT, host: HOST });

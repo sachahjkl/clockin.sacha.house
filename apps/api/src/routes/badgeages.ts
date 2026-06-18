@@ -5,12 +5,14 @@ import { z } from "zod";
 import { requireUser } from "../auth.js";
 import { db } from "../db/index.js";
 import { badgeages, type Badgeage, type Slot } from "../db/schema.js";
+import { localeFor, translate, translateRequest, type Language } from "../translation/index.js";
 
 const slots: Slot[] = ["firstEntry", "firstExit", "secondEntry", "secondExit"];
 const slotSchema = z.enum(["firstEntry", "firstExit", "secondEntry", "secondExit"]);
 const daySchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid date");
 const timestampSchema = z.union([z.string(), z.number()]);
 const exportFormatSchema = z.enum(["csv", "xlsx"]);
+const exportLanguageSchema = z.enum(["fr", "en"]);
 
 function toISODate(date: Date) {
     return date.toISOString().split("T")[0];
@@ -22,233 +24,283 @@ function parseTimestamp(value: string | number) {
     return date.toISOString();
 }
 
-function formatExportTime(value: string | null) {
-	if (!value) return "";
-	return new Intl.DateTimeFormat("fr-FR", {
-		hour: "2-digit",
-		minute: "2-digit",
-		second: "2-digit",
-		hour12: false,
-	}).format(new Date(value));
+function exportHeaders(language: Language) {
+    return [
+        translate(language, "export.badgeages.headers.day"),
+        translate(language, "export.badgeages.headers.firstEntry"),
+        translate(language, "export.badgeages.headers.firstExit"),
+        translate(language, "export.badgeages.headers.secondEntry"),
+        translate(language, "export.badgeages.headers.secondExit"),
+        translate(language, "export.badgeages.headers.total"),
+    ];
 }
 
-function computeTotal(record: Badgeage) {
-	let totalSeconds = 0;
-	for (let i = 0; i < slots.length; i += 2) {
-		const start = record[slots[i]];
-		const end = record[slots[i + 1]];
-		if (start && end) {
-			totalSeconds += Math.max(0, Math.floor((new Date(end).getTime() - new Date(start).getTime()) / 1000));
-		}
-	}
-
-	const hours = Math.floor(totalSeconds / 3600);
-	const minutes = Math.floor((totalSeconds % 3600) / 60);
-	const seconds = totalSeconds % 60;
-	return `${hours}h ${minutes}m ${seconds}s`;
+function formatExportTime(value: string | null, language: Language) {
+    if (!value) return "";
+    return new Intl.DateTimeFormat(localeFor(language), {
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+        hour12: false,
+    }).format(new Date(value));
 }
 
-function buildExportRows(records: Badgeage[]) {
-	return records.map((record) => ({
-		Jour: record.day,
-		"Entrée 1": formatExportTime(record.firstEntry),
-		"Sortie 1": formatExportTime(record.firstExit),
-		"Entrée 2": formatExportTime(record.secondEntry),
-		"Sortie 2": formatExportTime(record.secondExit),
-		Total: computeTotal(record),
-	}));
+function formatExportDay(value: string, language: Language) {
+    return new Intl.DateTimeFormat(localeFor(language), {
+        weekday: "short",
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+    }).format(new Date(`${value}T00:00:00`));
 }
 
-function toCsv(rows: Array<Record<string, string>>) {
-	const headers = ["Jour", "Entrée 1", "Sortie 1", "Entrée 2", "Sortie 2", "Total"];
-	const lines = [headers.join(";")];
+function computeTotalSeconds(record: Badgeage) {
+    let totalSeconds = 0;
+    for (let i = 0; i < slots.length; i += 2) {
+        const start = record[slots[i]];
+        const end = record[slots[i + 1]];
+        if (start && end) {
+            totalSeconds += Math.max(
+                0,
+                Math.floor((new Date(end).getTime() - new Date(start).getTime()) / 1000),
+            );
+        }
+    }
 
-	for (const row of rows) {
-		lines.push(headers.map((header) => escapeCsvValue(row[header] ?? "")).join(";"));
-	}
+    return totalSeconds;
+}
 
-	return lines.join("\n");
+function formatDuration(totalSeconds: number) {
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const seconds = totalSeconds % 60;
+    return `${hours}h ${minutes}m ${seconds}s`;
+}
+
+function buildExportRows(records: Badgeage[], language: Language) {
+    const headers = exportHeaders(language);
+    const rows = records.map((record) => ({
+        [headers[0]]: formatExportDay(record.day, language),
+        [headers[1]]: formatExportTime(record.firstEntry, language),
+        [headers[2]]: formatExportTime(record.firstExit, language),
+        [headers[3]]: formatExportTime(record.secondEntry, language),
+        [headers[4]]: formatExportTime(record.secondExit, language),
+        [headers[5]]: formatDuration(computeTotalSeconds(record)),
+    }));
+
+    rows.push({
+        [headers[0]]: translate(language, "export.badgeages.rows.total"),
+        [headers[1]]: "",
+        [headers[2]]: "",
+        [headers[3]]: "",
+        [headers[4]]: "",
+        [headers[5]]: formatDuration(
+            records.reduce((total, record) => total + computeTotalSeconds(record), 0),
+        ),
+    });
+
+    return rows;
+}
+
+function toCsv(rows: Array<Record<string, string>>, headers: string[]) {
+    const lines = [headers.join(";")];
+
+    for (const row of rows) {
+        lines.push(headers.map((header) => escapeCsvValue(row[header] ?? "")).join(";"));
+    }
+
+    return lines.join("\n");
 }
 
 function escapeCsvValue(value: string) {
-	if (value.includes(";") || value.includes("\"") || value.includes("\n")) {
-		return `"${value.replaceAll("\"", '""')}"`;
-	}
+    if (value.includes(";") || value.includes('"') || value.includes("\n")) {
+        return `"${value.replaceAll('"', '""')}"`;
+    }
 
-	return value;
+    return value;
 }
 
 const badgeagesRoutes: FastifyPluginAsyncZod = async (fastify) => {
-	fastify.route({
-		method: "GET",
-		url: "/badgeages/export",
-		schema: {
-			querystring: z.object({
-				from: daySchema,
-				to: daySchema,
-				format: exportFormatSchema,
-			}),
-		},
-		handler: async (request, reply) => {
-			const user = requireUser(request);
-			const { from, to, format } = request.query;
+    fastify.route({
+        method: "GET",
+        url: "/badgeages/export",
+        schema: {
+            querystring: z.object({
+                from: daySchema,
+                to: daySchema,
+                format: exportFormatSchema,
+                lang: exportLanguageSchema.default("fr"),
+            }),
+        },
+        handler: async (request, reply) => {
+            const user = requireUser(request);
+            const { from, to, format, lang } = request.query;
 
-			const records = await db
-				.select()
-				.from(badgeages)
-				.where(and(eq(badgeages.userId, user.id), between(badgeages.day, from, to)))
-				.orderBy(asc(badgeages.day))
-				.all();
+            const records = await db
+                .select()
+                .from(badgeages)
+                .where(and(eq(badgeages.userId, user.id), between(badgeages.day, from, to)))
+                .orderBy(asc(badgeages.day))
+                .all();
 
-			const rows = buildExportRows(records);
-			const fileName = `clockin-${from}_to_${to}`;
+            const rows = buildExportRows(records, lang);
+            const headers = exportHeaders(lang);
+            const fileName = `clockin-${from}_to_${to}`;
 
-			if (format === "csv") {
-				reply.header("Content-Type", "text/csv; charset=utf-8");
-				reply.header("Content-Disposition", `attachment; filename="${fileName}.csv"`);
-				return reply.send(Buffer.from(`\uFEFF${toCsv(rows)}`));
-			}
+            if (format === "csv") {
+                reply.header("Content-Type", "text/csv; charset=utf-8");
+                reply.header("Content-Disposition", `attachment; filename="${fileName}.csv"`);
+                return reply.send(Buffer.from(`\uFEFF${toCsv(rows, headers)}`));
+            }
 
-			const worksheet = XLSX.utils.json_to_sheet(rows);
-			const workbook = XLSX.utils.book_new();
-			XLSX.utils.book_append_sheet(workbook, worksheet, "Badgeages");
-			const buffer = XLSX.write(workbook, { type: "buffer", bookType: "xlsx" });
+            const worksheet = XLSX.utils.json_to_sheet(rows);
+            const workbook = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(workbook, worksheet, "Badgeages");
+            const buffer = XLSX.write(workbook, { type: "buffer", bookType: "xlsx" });
 
-			reply.header(
-				"Content-Type",
-				"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-			);
-			reply.header("Content-Disposition", `attachment; filename="${fileName}.xlsx"`);
-			return reply.send(buffer);
-		},
-	});
+            reply.header(
+                "Content-Type",
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            );
+            reply.header("Content-Disposition", `attachment; filename="${fileName}.xlsx"`);
+            return reply.send(buffer);
+        },
+    });
 
     fastify.route({
-		method: "GET",
-		url: "/badgeages",
-		schema: {
-			querystring: z.object({
-				from: daySchema.optional(),
-				to: daySchema.optional(),
-			}),
-		},
-		handler: async (request, reply) => {
-			const user = requireUser(request);
-			const now = new Date();
-			const from = request.query.from ?? toISODate(now);
-			const to = request.query.to ?? toISODate(now);
+        method: "GET",
+        url: "/badgeages",
+        schema: {
+            querystring: z.object({
+                from: daySchema.optional(),
+                to: daySchema.optional(),
+            }),
+        },
+        handler: async (request, reply) => {
+            const user = requireUser(request);
+            const now = new Date();
+            const from = request.query.from ?? toISODate(now);
+            const to = request.query.to ?? toISODate(now);
 
-			const records = await db
-				.select()
-				.from(badgeages)
-				.where(and(eq(badgeages.userId, user.id), between(badgeages.day, from, to)))
-				.orderBy(asc(badgeages.day))
-				.all();
+            const records = await db
+                .select()
+                .from(badgeages)
+                .where(and(eq(badgeages.userId, user.id), between(badgeages.day, from, to)))
+                .orderBy(asc(badgeages.day))
+                .all();
 
             return reply.send(records);
-		},
-	});
+        },
+    });
 
     fastify.route({
-		method: "POST",
-		url: "/badgeages",
-		schema: {
-			body: z.object({
-				timestamp: timestampSchema,
-			}),
-		},
-		handler: async (request, reply) => {
-			const user = requireUser(request);
-			const timestamp = parseTimestamp(request.body.timestamp);
-			const day = toISODate(new Date(timestamp));
+        method: "POST",
+        url: "/badgeages",
+        schema: {
+            body: z.object({
+                timestamp: timestampSchema,
+            }),
+        },
+        handler: async (request, reply) => {
+            const user = requireUser(request);
+            const timestamp = parseTimestamp(request.body.timestamp);
+            const day = toISODate(new Date(timestamp));
 
-			let record = await db
-				.select()
-				.from(badgeages)
-				.where(and(eq(badgeages.userId, user.id), eq(badgeages.day, day)))
-				.get();
+            let record = await db
+                .select()
+                .from(badgeages)
+                .where(and(eq(badgeages.userId, user.id), eq(badgeages.day, day)))
+                .get();
 
-			if (!record) {
-				record = await db
-					.insert(badgeages)
-					.values({ day, userId: user.id, firstEntry: timestamp })
-					.returning()
-					.get();
-				return reply.status(201).send(record);
-			}
+            if (!record) {
+                record = await db
+                    .insert(badgeages)
+                    .values({ day, userId: user.id, firstEntry: timestamp })
+                    .returning()
+                    .get();
+                return reply.status(201).send(record);
+            }
 
-			const nextSlot = slots.find((slot) => record[slot] === null);
-			if (!nextSlot) {
-				return reply.status(409).send({ error: "All slots filled for today" });
-			}
+            const nextSlot = slots.find((slot) => record[slot] === null);
+            if (!nextSlot) {
+                return reply.status(409).send({
+                    error: translateRequest(request, "errors.allSlotsFilled"),
+                });
+            }
 
-			const updated = await db
-				.update(badgeages)
-				.set({ [nextSlot]: timestamp })
-				.where(and(eq(badgeages.userId, user.id), eq(badgeages.id, record.id)))
-				.returning()
-				.get();
+            const updated = await db
+                .update(badgeages)
+                .set({ [nextSlot]: timestamp })
+                .where(and(eq(badgeages.userId, user.id), eq(badgeages.id, record.id)))
+                .returning()
+                .get();
 
             return reply.status(200).send(updated);
-		},
-	});
+        },
+    });
 
     fastify.route({
-		method: "PATCH",
-		url: "/badgeages/:id",
-		schema: {
-			params: z.object({ id: z.coerce.number().int().positive() }),
-			body: z.object({
-				slot: slotSchema,
-				timestamp: timestampSchema,
-			}),
-		},
-		handler: async (request, reply) => {
-			const user = requireUser(request);
-			const timestamp = parseTimestamp(request.body.timestamp);
+        method: "PATCH",
+        url: "/badgeages/:id",
+        schema: {
+            params: z.object({ id: z.coerce.number().int().positive() }),
+            body: z.object({
+                slot: slotSchema,
+                timestamp: timestampSchema,
+            }),
+        },
+        handler: async (request, reply) => {
+            const user = requireUser(request);
+            const timestamp = parseTimestamp(request.body.timestamp);
 
-			const existing = await db
-				.select()
-				.from(badgeages)
-				.where(and(eq(badgeages.userId, user.id), eq(badgeages.id, request.params.id)))
-				.get();
-			if (!existing) return reply.status(404).send({ error: "Not found" });
+            const existing = await db
+                .select()
+                .from(badgeages)
+                .where(and(eq(badgeages.userId, user.id), eq(badgeages.id, request.params.id)))
+                .get();
+            if (!existing)
+                return reply
+                    .status(404)
+                    .send({ error: translateRequest(request, "errors.notFound") });
 
-			const updated = await db
-				.update(badgeages)
-				.set({ [request.body.slot]: timestamp })
-				.where(and(eq(badgeages.userId, user.id), eq(badgeages.id, request.params.id)))
-				.returning()
-				.get();
+            const updated = await db
+                .update(badgeages)
+                .set({ [request.body.slot]: timestamp })
+                .where(and(eq(badgeages.userId, user.id), eq(badgeages.id, request.params.id)))
+                .returning()
+                .get();
 
-			return reply.send(updated);
-		},
-	});
+            return reply.send(updated);
+        },
+    });
 
     fastify.route({
-		method: "DELETE",
-		url: "/badgeages/:id",
-		schema: {
-			params: z.object({ id: z.coerce.number().int().positive() }),
-		},
-		handler: async (request, reply) => {
-			const user = requireUser(request);
+        method: "DELETE",
+        url: "/badgeages/:id",
+        schema: {
+            params: z.object({ id: z.coerce.number().int().positive() }),
+        },
+        handler: async (request, reply) => {
+            const user = requireUser(request);
 
-			const existing = await db
-				.select()
-				.from(badgeages)
-				.where(and(eq(badgeages.userId, user.id), eq(badgeages.id, request.params.id)))
-				.get();
-			if (!existing) return reply.status(404).send({ error: "Not found" });
+            const existing = await db
+                .select()
+                .from(badgeages)
+                .where(and(eq(badgeages.userId, user.id), eq(badgeages.id, request.params.id)))
+                .get();
+            if (!existing)
+                return reply
+                    .status(404)
+                    .send({ error: translateRequest(request, "errors.notFound") });
 
-			await db
-				.delete(badgeages)
-				.where(and(eq(badgeages.userId, user.id), eq(badgeages.id, request.params.id)))
-				.run();
+            await db
+                .delete(badgeages)
+                .where(and(eq(badgeages.userId, user.id), eq(badgeages.id, request.params.id)))
+                .run();
 
-			return reply.status(204).send();
-		},
-	});
+            return reply.status(204).send();
+        },
+    });
 };
 
 export default badgeagesRoutes;

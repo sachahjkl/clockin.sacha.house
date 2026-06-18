@@ -1,4 +1,5 @@
-import { Component, output, signal } from "@angular/core";
+import { Component, inject, output, signal } from "@angular/core";
+import { I18nService } from "../core/i18n.service";
 
 interface Sparkle {
     id: number;
@@ -24,7 +25,7 @@ interface Sparkle {
             }
 
             .badge-btn {
-               font-size: clamp(1rem, 5vw + 1rem, 3.75rem);
+                font-size: clamp(1rem, 5vw + 1rem, 3.75rem);
             }
 
             .badge-btn:hover .hand-bounce {
@@ -63,7 +64,7 @@ interface Sparkle {
                 (mouseleave)="sparkles.set([])"
             >
                 <span class="mr-3 inline-block hand-bounce">👆</span>
-                <span>Badger</span>
+                <span>{{ i18n.t("badge.button") }}</span>
             </button>
             @for (s of sparkles(); track s.id) {
                 <div
@@ -78,6 +79,7 @@ interface Sparkle {
     `,
 })
 export class BadgeageButtonComponent {
+    protected readonly i18n = inject(I18nService);
     badge = output<void>();
     readonly sparkles = signal<Sparkle[]>([]);
     private sparkleId = 0;
@@ -98,13 +100,13 @@ export class BadgeageButtonComponent {
         const dist = 20 + Math.random() * 30;
         const id = this.sparkleId++;
 
-        this.sparkles.update(s => [
+        this.sparkles.update((s) => [
             ...s.slice(-15),
             { id, x, y, tx: Math.cos(angle) * dist, ty: Math.sin(angle) * dist },
         ]);
 
         setTimeout(() => {
-            this.sparkles.update(s => s.filter(p => p.id !== id));
+            this.sparkles.update((s) => s.filter((p) => p.id !== id));
         }, 600);
     }
 }

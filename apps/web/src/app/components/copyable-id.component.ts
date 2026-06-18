@@ -1,4 +1,5 @@
-import { Component, input, signal } from "@angular/core";
+import { Component, inject, input, signal } from "@angular/core";
+import { I18nService } from "../core/i18n.service";
 
 @Component({
     selector: "app-copyable-id",
@@ -25,12 +26,15 @@ import { Component, input, signal } from "@angular/core";
             class="inline-flex cursor-pointer items-center gap-1.5 rounded bg-slate-100 px-3 py-2 text-sm text-slate-600 transition hover:bg-slate-200 active:scale-95"
             (click)="copy()"
             [title]="title()"
-        >ID: <strong>{{ copied() ? "Copié !" : id() }}</strong><span class="copy-icon"></span></code>
+            >{{ i18n.t("copy.id") }}: <strong>{{ copied() ? i18n.t("copy.copied") : id() }}</strong
+            ><span class="copy-icon"></span
+        ></code>
     `,
 })
 export class CopyableIdComponent {
+    protected readonly i18n = inject(I18nService);
     id = input.required<string>();
-    title = input("Cliquez pour copier l'identifiant");
+    title = input(this.i18n.t("copy.title"));
     copied = signal(false);
 
     async copy(): Promise<void> {

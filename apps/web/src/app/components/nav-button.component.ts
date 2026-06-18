@@ -59,7 +59,9 @@ import { Component, input, output } from "@angular/core";
             [class.nav-btn-red]="color() === 'red'"
             [class.nav-btn-default-size]="size() === 'default'"
             [class.nav-btn-compact-size]="size() === 'compact'"
-        ><ng-content/></button>
+        >
+            <ng-content />
+        </button>
     `,
 })
 export class NavButtonComponent {

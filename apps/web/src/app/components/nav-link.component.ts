@@ -68,7 +68,8 @@ import { RouterLink, RouterLinkActive } from "@angular/router";
             [class.nav-btn-red]="color() === 'red'"
             [class.nav-btn-default-size]="size() === 'default'"
             [class.nav-btn-compact-size]="size() === 'compact'"
-        ><ng-content/></a>
+            ><ng-content
+        /></a>
     `,
 })
 export class NavLinkComponent {

@@ -20,25 +20,31 @@ async function generateUniqueUserId(): Promise<string> {
 
 const authRoutes: FastifyPluginAsyncZod = async (fastify) => {
     fastify.post(
-		"/auth/account",
-		{
-			config: {
-				rateLimit: {
-					max: 5,
-					timeWindow: "1 minute",
-				},
-			},
-		},
-		async (_request, reply) => {
-        const userId = await generateUniqueUserId();
-        const user = await db
-            .insert(users)
-            .values({ userId })
-            .returning({ userId: users.userId, createdAt: users.createdAt })
-            .get();
+        "/auth/account",
+        {
+            config: {
+                rateLimit: {
+                    max: 5,
+                    timeWindow: "1 minute",
+                },
+            },
+        },
+        async (_request, reply) => {
+            const userId = await generateUniqueUserId();
+            const user = await db
+                .insert(users)
+                .values({ userId })
+                .returning({
+                    userId: users.userId,
+                    name: users.name,
+                    email: users.email,
+                    createdAt: users.createdAt,
+                })
+                .get();
 
-        return reply.status(201).send(user);
-    });
+            return reply.status(201).send(user);
+        },
+    );
 };
 
 export default authRoutes;

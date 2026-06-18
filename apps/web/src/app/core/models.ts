@@ -1,5 +1,7 @@
 export interface User {
     userId: string;
+    name: string | null;
+    email: string | null;
     createdAt: string;
 }
 

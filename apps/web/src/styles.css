@@ -1,9 +1,11 @@
 @import "tailwindcss" source(".");
 
-html {
-	@apply bg-neutral-50;
+html,
+body,
+app-root {
+    @apply block min-h-screen bg-neutral-50;
 }
 
 body {
-	@apply relative min-h-screen bg-neutral-50 text-slate-900 antialiased;
+    @apply relative text-slate-900 antialiased;
 }
