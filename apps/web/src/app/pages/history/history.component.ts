@@ -84,6 +84,15 @@ const HISTORY_PAGE_SIZE = 500;
                     >
                         {{ i18n.t("history.exportXlsx") }}
                     </button>
+                    <label class="ml-6 inline-flex cursor-pointer items-center gap-2 text-sm text-slate-600">
+                        <input
+                            type="checkbox"
+                            class="h-5 w-5 cursor-pointer rounded border-slate-400 accent-sky-600"
+                            [checked]="exportIso()"
+                            (change)="exportIso.set(($any($event.target).checked))"
+                        />
+                        {{ i18n.t("history.exportIso") }}
+                    </label>
 
                     @if (exportPending()) {
                         <span class="text-sm text-slate-500">{{
@@ -131,6 +140,7 @@ export class HistoryComponent {
     readonly exportRange = signal(getRangeForPreset("lastMonth"));
     readonly exportPending = signal(false);
     readonly exportError = signal<string | null>(null);
+    readonly exportIso = signal(false);
     readonly exportRangeInvalid = computed(() => this.exportRange().from > this.exportRange().to);
     private readonly loadedPages = new Set<string>([pageKey(0, HISTORY_PAGE_SIZE)]);
     private readonly pendingPages = new Set<string>();
@@ -167,17 +177,22 @@ export class HistoryComponent {
         this.error.set(null);
         this.badgeagesClient.delete(id).subscribe({
             next: () => {
-                this.badgeages.update((items) => {
-                    const index = items.findIndex((item) => item?.id === id);
-                    if (index === -1) {
-                        return items;
-                    }
+                const index = this.badgeages().findIndex((item) => item?.id === id);
+                if (index === -1) {
+                    return;
+                }
 
+                this.badgeages.update((items) => {
                     const copy = [...items];
                     copy.splice(index, 1);
                     return copy;
                 });
                 this.total.update((value) => Math.max(0, value - 1));
+
+                const affectedOffset = Math.floor(index / HISTORY_PAGE_SIZE) * HISTORY_PAGE_SIZE;
+                invalidatePagesFrom(this.loadedPages, affectedOffset);
+                invalidatePagesFrom(this.pendingPages, affectedOffset);
+                this.loadPage({ offset: affectedOffset, limit: HISTORY_PAGE_SIZE });
             },
             error: (error: unknown) => {
                 this.error.set(errorMessage(error, this.i18n));
@@ -216,7 +231,7 @@ export class HistoryComponent {
 
         const range = this.exportRange();
         this.badgeagesClient
-            .export(range.from, range.to, format)
+            .export(range.from, range.to, format, this.exportIso())
             .pipe(finalize(() => this.exportPending.set(false)))
             .subscribe({
                 next: (blob) => {
@@ -332,4 +347,13 @@ function pageLoaded(items: Array<Badgeage | null>, offset: number, limit: number
 
 function pageKey(offset: number, limit: number): string {
     return `${offset}:${limit}`;
+}
+
+function invalidatePagesFrom(pages: Set<string>, offset: number): void {
+    for (const key of pages) {
+        const [pageOffset] = key.split(":");
+        if (Number(pageOffset) >= offset) {
+            pages.delete(key);
+        }
+    }
 }

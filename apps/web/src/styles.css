@@ -1,15 +1,5 @@
 @import "tailwindcss" source(".");
 
-@keyframes app-shimmer-pan {
-    0%,
-    100% {
-        background-position: 0% 50%;
-    }
-    50% {
-        background-position: 100% 50%;
-    }
-}
-
 html,
 body,
 app-root {
@@ -28,6 +18,4 @@ body {
             rgba(239, 246, 255, 1),
             rgba(191, 219, 254, 0.95)
         );
-    background-size: 100% 100%, 100% 100%, 240% 240%;
-    animation: app-shimmer-pan 14s ease-in-out infinite;
 }

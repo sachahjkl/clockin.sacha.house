@@ -20,6 +20,10 @@ const daySchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid date");
 const timestampSchema = z.union([z.string(), z.number()]);
 const exportFormatSchema = z.enum(["csv", "xlsx"]);
 const exportLanguageSchema = z.enum(["fr", "en"]);
+const exportIsoSchema = z.preprocess(
+    (value) => (value === undefined ? "false" : value),
+    z.enum(["true", "false"]).transform((value) => value === "true"),
+);
 
 function toISODate(date: Date) {
     return date.toISOString().split("T")[0];
@@ -42,8 +46,9 @@ function exportHeaders(language: Language) {
     ];
 }
 
-function formatExportTime(value: string | null, language: Language) {
+function formatExportTime(value: string | null, language: Language, iso: boolean) {
     if (!value) return "";
+    if (iso) return value;
     return new Intl.DateTimeFormat(localeFor(language), {
         hour: "2-digit",
         minute: "2-digit",
@@ -52,7 +57,8 @@ function formatExportTime(value: string | null, language: Language) {
     }).format(new Date(value));
 }
 
-function formatExportDay(value: string, language: Language) {
+function formatExportDay(value: string, language: Language, iso: boolean) {
+    if (iso) return value;
     return new Intl.DateTimeFormat(localeFor(language), {
         weekday: "short",
         day: "2-digit",
@@ -84,14 +90,14 @@ function formatDuration(totalSeconds: number) {
     return `${hours}h ${minutes}m ${seconds}s`;
 }
 
-function buildExportRows(records: Badgeage[], language: Language) {
+function buildExportRows(records: Badgeage[], language: Language, iso: boolean) {
     const headers = exportHeaders(language);
     const rows = records.map((record) => ({
-        [headers[0]]: formatExportDay(record.day, language),
-        [headers[1]]: formatExportTime(record.firstEntry, language),
-        [headers[2]]: formatExportTime(record.firstExit, language),
-        [headers[3]]: formatExportTime(record.secondEntry, language),
-        [headers[4]]: formatExportTime(record.secondExit, language),
+        [headers[0]]: formatExportDay(record.day, language, iso),
+        [headers[1]]: formatExportTime(record.firstEntry, language, iso),
+        [headers[2]]: formatExportTime(record.firstExit, language, iso),
+        [headers[3]]: formatExportTime(record.secondEntry, language, iso),
+        [headers[4]]: formatExportTime(record.secondExit, language, iso),
         [headers[5]]: formatDuration(computeTotalSeconds(record)),
     }));
 
@@ -137,11 +143,12 @@ const badgeagesRoutes: FastifyPluginAsyncZod = async (fastify) => {
                 to: daySchema,
                 format: exportFormatSchema,
                 lang: exportLanguageSchema.default("fr"),
+                iso: exportIsoSchema,
             }),
         },
         handler: async (request, reply) => {
             const user = requireUser(request);
-            const { from, to, format, lang } = request.query;
+            const { from, to, format, lang, iso } = request.query;
 
             if (
                 sendDemoBadgeagesExportIfNeeded(reply, user, {
@@ -149,8 +156,9 @@ const badgeagesRoutes: FastifyPluginAsyncZod = async (fastify) => {
                     from,
                     to,
                     lang,
+                    iso,
                     buildRows: (demoUser, exportFrom, exportTo, exportLang) =>
-                        buildExportRows(demoExportRows(demoUser, exportFrom, exportTo), exportLang),
+                        buildExportRows(demoExportRows(demoUser, exportFrom, exportTo), exportLang, iso),
                     headers: exportHeaders,
                     toCsv,
                 })
@@ -165,7 +173,7 @@ const badgeagesRoutes: FastifyPluginAsyncZod = async (fastify) => {
                 .orderBy(asc(badgeages.day))
                 .all();
 
-            const rows = buildExportRows(records, lang);
+            const rows = buildExportRows(records, lang, iso);
             const headers = exportHeaders(lang);
             const fileName = `clockin-${from}_to_${to}`;
 

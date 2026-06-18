@@ -76,6 +76,15 @@ export class AccountService {
         localStorage.removeItem(WELCOME_WIZARD_STORAGE_KEY);
     }
 
+    showHelp(): void {
+        if (this.userId()) {
+            this.welcomeWizardOpen.set(true);
+            localStorage.setItem(WELCOME_WIZARD_STORAGE_KEY, "1");
+        } else {
+            void this.router.navigate(["/connect"]);
+        }
+    }
+
     private openWelcomeWizard(): void {
         this.welcomeWizardOpen.set(true);
         localStorage.setItem(WELCOME_WIZARD_STORAGE_KEY, "1");

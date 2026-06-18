@@ -13,6 +13,7 @@ export interface DemoExportContext {
     from: string;
     to: string;
     lang: "fr" | "en";
+    iso: boolean;
     buildRows: (user: User, from: string, to: string, lang: "fr" | "en") => Array<Record<string, string>>;
     headers: (lang: "fr" | "en") => string[];
     toCsv: (rows: Array<Record<string, string>>, headers: string[]) => string;

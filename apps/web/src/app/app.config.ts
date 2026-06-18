@@ -4,7 +4,6 @@ import {
     provideRouter,
     withComponentInputBinding,
     withDebugTracing,
-    withViewTransitions,
 } from "@angular/router";
 import { apiBaseInterceptor } from "./core/api-base.interceptor";
 import { apiErrorInterceptor } from "./core/api-error.interceptor";
@@ -13,7 +12,6 @@ import { routes } from "./app.routes";
 
 const routerFeatures = [
     withComponentInputBinding(),
-    withViewTransitions(),
     ...(isDevMode() ? [withDebugTracing()] : []),
 ];
 

@@ -9,10 +9,11 @@ import { Component, input, output } from "@angular/core";
                 display: block;
             }
             .nav-btn-base {
-                display: block;
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
                 width: 100%;
                 border-radius: 0.5rem;
-                text-align: center;
                 font-weight: 600;
                 color: white;
                 box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05);

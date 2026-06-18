@@ -1,5 +1,6 @@
 import { Component, computed, inject } from "@angular/core";
 import { RouterLink } from "@angular/router";
+import { AccountService } from "../core/account.service";
 import { I18nService, type Language } from "../core/i18n.service";
 
 @Component({
@@ -24,6 +25,16 @@ import { I18nService, type Language } from "../core/i18n.service";
                 <a routerLink="/about" class="transition hover:text-sky-700 hover:underline">{{
                     i18n.t("app.about")
                 }}</a>
+                @if (account.userId()) {
+                    <span aria-hidden="true">•</span>
+                    <button
+                        type="button"
+                        class="transition hover:text-sky-700 hover:underline"
+                        (click)="account.showHelp()"
+                    >
+                        {{ i18n.t("app.help") }}
+                    </button>
+                }
             </div>
 
             <div
@@ -47,6 +58,7 @@ import { I18nService, type Language } from "../core/i18n.service";
 })
 export class FooterComponent {
     protected readonly i18n = inject(I18nService);
+    protected readonly account = inject(AccountService);
     protected readonly year = computed(() => new Date().getFullYear());
 
     protected setLanguage(language: Language): void {

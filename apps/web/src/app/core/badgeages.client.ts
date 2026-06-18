@@ -34,13 +34,14 @@ export class BadgeagesClient {
         return this.http.delete<void>(`/badgeages/${id}`);
     }
 
-    export(from: string, to: string, format: "csv" | "xlsx"): Observable<Blob> {
+    export(from: string, to: string, format: "csv" | "xlsx", iso = false): Observable<Blob> {
         return this.http.get("/badgeages/export", {
             params: new HttpParams({
                 fromObject: {
                     from,
                     to,
                     format,
+                    iso: String(iso),
                     lang: this.i18n.language(),
                 },
             }),

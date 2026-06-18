@@ -10,7 +10,6 @@ import {
     type TableRow,
 } from "../../components/badgeages-table.component";
 import { CopyableIdComponent } from "../../components/copyable-id.component";
-import { WelcomeWizardComponent } from "../../components/welcome-wizard.component";
 import { I18nService, type TranslationKey } from "../../core/i18n.service";
 import type { Badgeage, HomeData, Slot, User } from "../../core/models";
 
@@ -21,14 +20,9 @@ import type { Badgeage, HomeData, Slot, User } from "../../core/models";
         BadgeageButtonComponent,
         BadgeagesTableComponent,
         CopyableIdComponent,
-        WelcomeWizardComponent,
     ],
     template: `
         <article class="mx-auto w-full min-w-0 max-w-[80rem] space-y-6">
-            @if (account.welcomeWizardOpen() && userId()) {
-                <app-welcome-wizard [userId]="userId()!" (close)="account.dismissWelcomeWizard()" />
-            }
-
             <section class="flex items-center justify-between flex-wrap gap-3 px-2">
                 <div>
                     <h1 class="text-2xl font-bold">{{ greetingText() }}</h1>

@@ -20,6 +20,11 @@ interface Sparkle {
                 max-width: 420px;
             }
 
+            @keyframes bounce {
+                0%, 100% { transform: translateY(0); }
+                50% { transform: translateY(-15px); }
+            }
+
             .hand-bounce {
                 animation: bounce 1s infinite;
             }

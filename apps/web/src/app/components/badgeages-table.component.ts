@@ -10,6 +10,7 @@ import {
 } from "@angular/core";
 import { DatePipe } from "@angular/common";
 import { I18nService } from "../core/i18n.service";
+import { IconComponent } from "./icon.component";
 
 @Directive({
     selector: "[autoFocus]",
@@ -26,7 +27,7 @@ export class AutoFocusDirective implements AfterViewInit {
 @Component({
     selector: "app-badgeages-table",
     standalone: true,
-    imports: [DatePipe, AutoFocusDirective],
+    imports: [DatePipe, AutoFocusDirective, IconComponent],
     styles: [
         `
             .trash-icon {
@@ -46,8 +47,8 @@ export class AutoFocusDirective implements AfterViewInit {
     template: `
         <section class="overflow-hidden rounded-xl bg-white shadow">
             <div class="px-5 py-4 sm:px-6">
-                <p class="text-xs font-semibold uppercase tracking-[0.24em] text-sky-600">
-                    🔎 {{ i18n.t("table.summary") }}
+                <p class="flex items-center text-xs font-semibold uppercase tracking-[0.24em] text-sky-600">
+                    <app-icon name="search" size="1.25rem" class="mr-1" /> {{ i18n.t("table.summary") }}
                 </p>
                 <h2 class="mt-1 text-lg font-bold text-slate-900">
                     {{ i18n.t("table.weekBadgeages") }}
@@ -113,7 +114,7 @@ export class AutoFocusDirective implements AfterViewInit {
                                                  <div class="flex items-center gap-1">
                                                      <button
                                                          type="button"
-                                                         class="inline-flex justify-start rounded-lg px-2 py-1 font-medium text-slate-700 hover:bg-slate-100 hover:text-sky-700 hover:underline"
+                                                         class="tabular-nums inline-flex justify-start rounded-lg px-2 py-1 font-medium text-slate-700 hover:bg-slate-100 hover:text-sky-700 hover:underline"
                                                          (click)="startEdit(row.day, slot, value)"
                                                          [title]="i18n.t('table.editTime')"
                                                      >
@@ -131,7 +132,7 @@ export class AutoFocusDirective implements AfterViewInit {
                                                          (click)="deleteSlot.emit({ day: row.day, slot })"
                                                          title="Supprimer"
                                                      >
-                                                         <span class="trash-icon inline-block h-4 w-4"></span>
+                                                          <span class="trash-icon inline-block h-4 w-4"></span>
                                                      </button>
                                                  </div>
                                              }
