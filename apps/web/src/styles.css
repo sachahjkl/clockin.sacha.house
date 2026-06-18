@@ -1,11 +1,33 @@
 @import "tailwindcss" source(".");
 
+@keyframes app-shimmer-pan {
+    0%,
+    100% {
+        background-position: 0% 50%;
+    }
+    50% {
+        background-position: 100% 50%;
+    }
+}
+
 html,
 body,
 app-root {
-    @apply block min-h-screen bg-neutral-50;
+    @apply block min-h-screen;
 }
 
 body {
     @apply relative text-slate-900 antialiased;
+    background:
+        radial-gradient(circle at top left, rgba(96, 165, 250, 0.24), transparent 30%),
+        radial-gradient(circle at top right, rgba(59, 130, 246, 0.18), transparent 28%),
+        linear-gradient(
+            120deg,
+            rgba(239, 246, 255, 1),
+            rgba(219, 234, 254, 1),
+            rgba(239, 246, 255, 1),
+            rgba(191, 219, 254, 0.95)
+        );
+    background-size: 100% 100%, 100% 100%, 240% 240%;
+    animation: app-shimmer-pan 14s ease-in-out infinite;
 }

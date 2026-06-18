@@ -1,16 +1,11 @@
 import { Component, inject } from "@angular/core";
 import { CanActivateFn, Router, RouterLink, Routes } from "@angular/router";
 import { AccountService } from "./core/account.service";
-import { HomeComponent } from "./pages/home/home.component";
-import { HistoryComponent } from "./pages/history/history.component";
-import { AccountComponent } from "./pages/account/account.component";
-import { ConnectComponent } from "./pages/connect/connect.component";
 import {
-    AboutPageComponent,
-    CookiesPageComponent,
-    LegalPageComponent,
-    PrivacyPageComponent,
-} from "./pages/legal/legal-pages.component";
+    resolveHomeData,
+    resolveHistoryBadgeages,
+    resolveProfile,
+} from "./core/resolver";
 import { I18nService } from "./core/i18n.service";
 
 @Component({
@@ -51,13 +46,52 @@ export const routes: Routes = [
         pathMatch: "full",
         redirectTo: () => (inject(AccountService).userId() ? "/clockin" : "/connect"),
     },
-    { path: "connect", component: ConnectComponent, canActivate: [redirectIfAccount] },
-    { path: "clockin", component: HomeComponent, canActivate: [requireAccount] },
-    { path: "history", component: HistoryComponent, canActivate: [requireAccount] },
-    { path: "account", component: AccountComponent, canActivate: [requireAccount] },
-    { path: "legal", component: LegalPageComponent },
-    { path: "privacy", component: PrivacyPageComponent },
-    { path: "cookies", component: CookiesPageComponent },
-    { path: "about", component: AboutPageComponent },
+    {
+        path: "connect",
+        loadComponent: () =>
+            import("./pages/connect/connect.component").then((m) => m.ConnectComponent),
+        canActivate: [redirectIfAccount],
+        data: { hideNav: true, fullscreen: true },
+    },
+    {
+        path: "clockin",
+        loadComponent: () => import("./pages/home/home.component").then((m) => m.HomeComponent),
+        canActivate: [requireAccount],
+        resolve: { homeData: resolveHomeData },
+    },
+    {
+        path: "history",
+        loadComponent: () =>
+            import("./pages/history/history.component").then((m) => m.HistoryComponent),
+        canActivate: [requireAccount],
+        resolve: { badgeages: resolveHistoryBadgeages },
+    },
+    {
+        path: "account",
+        loadComponent: () =>
+            import("./pages/account/account.component").then((m) => m.AccountComponent),
+        canActivate: [requireAccount],
+        resolve: { profile: resolveProfile },
+    },
+    {
+        path: "legal",
+        loadComponent: () =>
+            import("./pages/legal/legal-pages.component").then((m) => m.LegalPageComponent),
+    },
+    {
+        path: "privacy",
+        loadComponent: () =>
+            import("./pages/legal/legal-pages.component").then((m) => m.PrivacyPageComponent),
+    },
+    {
+        path: "cookies",
+        loadComponent: () =>
+            import("./pages/legal/legal-pages.component").then((m) => m.CookiesPageComponent),
+    },
+    {
+        path: "about",
+        loadComponent: () =>
+            import("./pages/legal/legal-pages.component").then((m) => m.AboutPageComponent),
+    },
     { path: "**", component: NotFoundComponent },
 ];

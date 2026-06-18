@@ -1,5 +1,7 @@
 import { Injectable, inject, signal } from "@angular/core";
+import { finalize } from "rxjs";
 import { Router } from "@angular/router";
+import { AuthClient } from "./auth.client";
 import { I18nService } from "./i18n.service";
 
 const STORAGE_KEY = "clockin_user_id";
@@ -9,6 +11,7 @@ const WELCOME_WIZARD_STORAGE_KEY = "clockin_pending_welcome_wizard";
     providedIn: "root",
 })
 export class AccountService {
+    private readonly authClient = inject(AuthClient);
     private readonly router = inject(Router);
     private readonly i18n = inject(I18nService);
     readonly userId = signal<string | null>(null);
@@ -26,53 +29,40 @@ export class AccountService {
         }
     }
 
-    async create(): Promise<boolean> {
+    create(): void {
         this.loading.set(true);
         this.error.set(null);
-        try {
-            const res = await fetch("/api/auth/account", { method: "POST" });
-            if (!res.ok) {
-                const body = await res.json().catch(() => ({ error: "Failed" }));
-                throw new Error(body.error ?? "Failed");
-            }
-            const data = (await res.json()) as { userId: string };
-            this.setUserId(data.userId);
-            this.openWelcomeWizard();
-            this.router.navigate(["/clockin"]);
-            return true;
-        } catch (e) {
-            this.error.set(e instanceof Error ? e.message : "Failed");
-            return false;
-        } finally {
-            this.loading.set(false);
-        }
+        this.authClient
+            .createAccount()
+            .pipe(finalize(() => this.loading.set(false)))
+            .subscribe({
+                next: (data) => {
+                    this.setUserId(data.userId);
+                    this.openWelcomeWizard();
+                    void this.router.navigate(["/clockin"]);
+                },
+                error: (error: unknown) => {
+                    this.error.set(this.messageForError(error));
+                },
+            });
     }
 
-    async recover(id: string): Promise<void> {
+    recover(id: string): void {
         if (!id.trim()) return;
         this.loading.set(true);
         this.error.set(null);
-        try {
-            const res = await fetch("/api/auth/verify", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ userId: id.trim() }),
+        this.authClient
+            .verifyAccount(id.trim())
+            .pipe(finalize(() => this.loading.set(false)))
+            .subscribe({
+                next: () => {
+                    this.setUserId(id.trim());
+                    void this.router.navigate(["/clockin"]);
+                },
+                error: (error: unknown) => {
+                    this.error.set(this.messageForError(error));
+                },
             });
-            if (res.status === 404) {
-                this.error.set(this.i18n.t("account.unknown"));
-                return;
-            }
-            if (!res.ok) {
-                this.error.set(this.i18n.t("errors.requestFailed"));
-                return;
-            }
-            this.setUserId(id.trim());
-            this.router.navigate(["/clockin"]);
-        } catch {
-            this.error.set(this.i18n.t("errors.requestFailed"));
-        } finally {
-            this.loading.set(false);
-        }
     }
 
     clear(): void {
@@ -98,5 +88,9 @@ export class AccountService {
         } else {
             localStorage.setItem(STORAGE_KEY, id);
         }
+    }
+
+    private messageForError(error: unknown): string {
+        return error instanceof Error ? error.message : this.i18n.t("errors.requestFailed");
     }
 }

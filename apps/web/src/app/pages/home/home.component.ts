@@ -1,7 +1,8 @@
-import { Component, OnInit, computed, effect, inject, signal } from "@angular/core";
-import { Router } from "@angular/router";
-import { ApiService } from "../../core/api.service";
+type TodayStatus = "noRecord" | "firstEntryIn" | "firstExitOut" | "secondEntryIn" | "allFilled";
+
+import { Component, computed, inject, input, linkedSignal, signal } from "@angular/core";
 import { AccountService } from "../../core/account.service";
+import { BadgeagesClient } from "../../core/badgeages.client";
 import { BadgeageButtonComponent } from "../../components/badgeage-button.component";
 import {
     BadgeagesTableComponent,
@@ -10,8 +11,8 @@ import {
 } from "../../components/badgeages-table.component";
 import { CopyableIdComponent } from "../../components/copyable-id.component";
 import { WelcomeWizardComponent } from "../../components/welcome-wizard.component";
-import { I18nService } from "../../core/i18n.service";
-import type { Badgeage, Slot, User } from "../../core/models";
+import { I18nService, type TranslationKey } from "../../core/i18n.service";
+import type { Badgeage, HomeData, Slot, User } from "../../core/models";
 
 @Component({
     selector: "app-home",
@@ -30,13 +31,7 @@ import type { Badgeage, Slot, User } from "../../core/models";
 
             <section class="flex items-center justify-between flex-wrap gap-3 px-2">
                 <div>
-                    <h1 class="text-2xl font-bold">
-                        @if (profileName()) {
-                            {{ i18n.t("clockin.greeting") }} {{ profileName() }}
-                        } @else {
-                            {{ i18n.t("app.clockin") }}
-                        }
-                    </h1>
+                    <h1 class="text-2xl font-bold">{{ greetingText() }}</h1>
                 </div>
                 @if (userId()) {
                     <app-copyable-id [id]="userId()!" />
@@ -44,7 +39,7 @@ import type { Badgeage, Slot, User } from "../../core/models";
             </section>
 
             <section class="flex items-center justify-center py-8">
-                <app-badgeage-button (badge)="badge()" />
+                <app-badgeage-button [disabled]="badgeageLocked()" (badge)="badge()" />
             </section>
 
             @if (error()) {
@@ -55,27 +50,57 @@ import type { Badgeage, Slot, User } from "../../core/models";
                 </div>
             }
 
-            <section class="mx-auto w-full min-w-[300px]">
+            <section class="mx-auto w-full">
                 <app-badgeages-table
                     [rows]="rows()"
                     [weekTotal]="weekTotal()"
                     (edit)="onEdit($event)"
+                    (deleteSlot)="clearSlot($event)"
                 />
             </section>
         </article>
     `,
 })
-export class HomeComponent implements OnInit {
-    private api = inject(ApiService);
+export class HomeComponent {
+    private readonly badgeagesClient = inject(BadgeagesClient);
     protected readonly account = inject(AccountService);
     protected readonly i18n = inject(I18nService);
-    private router = inject(Router);
+    protected readonly homeData = input.required<HomeData>();
 
     readonly userId = computed(() => this.account.userId());
-    readonly badgeages = signal<Badgeage[]>([]);
-    readonly profile = signal<User | null>(null);
+    readonly badgeages = linkedSignal(() => this.homeData().badgeages);
+    readonly profile = linkedSignal<User | null>(() => this.homeData().profile);
     readonly profileName = computed(() => this.profile()?.name?.trim() ?? "");
     readonly error = signal<string | null>(null);
+
+    readonly todayBadgeage = computed(() => {
+        const today = new Date().toISOString().split("T")[0];
+        return this.badgeages().find((b) => b.day === today) ?? null;
+    });
+
+    readonly todayStatus = computed<TodayStatus>(() => {
+        const r = this.todayBadgeage();
+        if (!r) return "noRecord";
+        if (!r.firstEntry) return "noRecord";
+        if (!r.firstExit) return "firstEntryIn";
+        if (!r.secondEntry) return "firstExitOut";
+        if (!r.secondExit) return "secondEntryIn";
+        return "allFilled";
+    });
+
+    readonly badgeageLocked = computed(() => this.todayStatus() === "allFilled");
+    readonly greetingText = computed(() => {
+        const map: Record<TodayStatus, TranslationKey> = {
+            noRecord: "greeting.noEntry",
+            firstEntryIn: "greeting.firstEntryIn",
+            firstExitOut: "greeting.firstExitOut",
+            secondEntryIn: "greeting.secondEntryIn",
+            allFilled: "greeting.secondExitOut",
+        };
+        const base = this.i18n.t(map[this.todayStatus()]);
+        const name = this.profileName();
+        return name ? `${base}, ${name} !` : `${base} !`;
+    });
     readonly rows = computed(() => buildWeekRows(this.badgeages()));
     readonly weekTotal = computed(() =>
         formatDuration(
@@ -83,69 +108,60 @@ export class HomeComponent implements OnInit {
         ),
     );
 
-    constructor() {
-        effect(() => {
-            if (!this.account.userId()) {
-                void this.router.navigate(["/connect"]);
-            }
+    badge(): void {
+        this.error.set(null);
+        this.badgeagesClient.badge(new Date().toISOString()).subscribe({
+            next: (updated) => {
+                this.upsertBadgeage(updated);
+            },
+            error: (error: unknown) => {
+                this.error.set(errorMessage(error, this.i18n));
+            },
         });
     }
 
-    ngOnInit(): void {
-        if (this.account.userId()) {
-            this.load().catch((e) => this.error.set(e.message));
-        }
-    }
-
-    async load(): Promise<void> {
-        const { from, to } = weekRange();
-        const [profile, badgeages] = await Promise.all([
-            this.api.get<User>("/me"),
-            this.api.get<Badgeage[]>(`/badgeages?from=${from}&to=${to}`),
-        ]);
-        this.profile.set(profile);
-        this.badgeages.set(badgeages);
-    }
-
-    async badge(): Promise<void> {
-        this.error.set(null);
-        try {
-            await this.api.post<Badgeage>("/badgeages", { timestamp: new Date().toISOString() });
-            await this.load();
-        } catch (e) {
-            this.error.set(e instanceof Error ? e.message : "Erreur");
-        }
-    }
-
-    async onEdit(event: { slot: SlotKey; day: string; value: string }): Promise<void> {
+    onEdit(event: { slot: SlotKey; day: string; value: string }): void {
         const record = this.badgeages().find((b) => b.day === event.day);
         if (!record) return;
 
         this.error.set(null);
-        try {
-            const timestamp = new Date(
-                `${event.day}T${normalizeTimeValue(event.value)}`,
-            ).toISOString();
-            await this.api.patch<Badgeage>(`/badgeages/${record.id}`, {
-                slot: event.slot,
-                timestamp,
-            });
-            await this.load();
-        } catch (e) {
-            this.error.set(e instanceof Error ? e.message : "Erreur");
-        }
+        const timestamp = new Date(`${event.day}T${normalizeTimeValue(event.value)}`).toISOString();
+        this.badgeagesClient.updateSlot(record.id, event.slot, timestamp).subscribe({
+            next: (updated) => {
+                this.upsertBadgeage(updated);
+            },
+            error: (error: unknown) => {
+                this.error.set(errorMessage(error, this.i18n));
+            },
+        });
     }
-}
 
-function weekRange() {
-    const start = startOfWorkWeek();
-    start.setHours(0, 0, 0, 0);
+    clearSlot(event: { slot: SlotKey; day: string }): void {
+        const record = this.badgeages().find((b) => b.day === event.day);
+        if (!record) return;
 
-    const end = new Date(start);
-    end.setDate(start.getDate() + 6);
-    end.setHours(23, 59, 59, 999);
+        this.error.set(null);
+        this.badgeagesClient.updateSlot(record.id, event.slot, null).subscribe({
+            next: (updated) => {
+                this.upsertBadgeage(updated);
+            },
+            error: (error: unknown) => {
+                this.error.set(errorMessage(error, this.i18n));
+            },
+        });
+    }
 
-    return { from: toISODate(start), to: toISODate(end) };
+    private upsertBadgeage(updated: Badgeage): void {
+        this.badgeages.update((items) => {
+            const idx = items.findIndex((b) => b.id === updated.id);
+            if (idx !== -1) {
+                const copy = [...items];
+                copy[idx] = updated;
+                return copy;
+            }
+            return [...items, updated];
+        });
+    }
 }
 
 function toISODate(date: Date) {
@@ -209,4 +225,8 @@ function formatDuration(totalSeconds: number): string {
 
 function normalizeTimeValue(value: string): string {
     return value.length === 5 ? `${value}:00` : value;
+}
+
+function errorMessage(error: unknown, i18n: I18nService): string {
+    return error instanceof Error ? error.message : i18n.t("errors.requestFailed");
 }

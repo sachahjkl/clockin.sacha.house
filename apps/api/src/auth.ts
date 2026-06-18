@@ -28,10 +28,9 @@ export async function populateUser(request: FastifyRequest): Promise<void> {
 
 export function requireUser(request: FastifyRequest): User {
     if (!request.user) {
-        const err = new Error(translateRequest(request, "errors.unauthorized")) as Error & {
-            statusCode?: number;
-        };
-        err.statusCode = 401;
+        const err = Object.assign(new Error(translateRequest(request, "errors.unauthorized")), {
+            statusCode: 401,
+        });
         throw err;
     }
 

@@ -19,6 +19,7 @@
         "notFound": "Introuvable",
         "allSlotsFilled": "Tous les créneaux de badgeage sont déjà remplis pour aujourd'hui.",
         "requestFailed": "La requête a échoué",
-        "accountNotFound": "Aucun compte trouvé avec cet identifiant"
+        "accountNotFound": "Aucun compte trouvé avec cet identifiant",
+        "demoReadOnly": "Le compte démo est en lecture seule"
     }
 }

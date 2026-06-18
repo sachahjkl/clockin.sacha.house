@@ -1,7 +1,19 @@
-import { Component } from "@angular/core";
-import { RouterOutlet } from "@angular/router";
+import { Component, computed, inject } from "@angular/core";
+import { toSignal } from "@angular/core/rxjs-interop";
+import { NavigationEnd, Router, RouterOutlet } from "@angular/router";
+import { filter, map, startWith } from "rxjs";
 import { FooterComponent } from "./components/footer.component";
 import { NavComponent } from "./components/nav.component";
+
+interface LayoutRouteData {
+    hideNav: boolean;
+    fullscreen: boolean;
+}
+
+const INITIAL_LAYOUT_DATA: LayoutRouteData = {
+    hideNav: false,
+    fullscreen: false,
+};
 
 @Component({
     selector: "app-root",
@@ -9,9 +21,11 @@ import { NavComponent } from "./components/nav.component";
     imports: [RouterOutlet, NavComponent, FooterComponent],
     template: `
         <div class="flex min-h-screen flex-col">
-            <app-nav />
-            <main class="mx-auto w-full max-w-5xl flex-1 px-4 py-4">
-                <section class="min-h-[300px] rounded-xl bg-white p-4 shadow">
+            @if (!hideNav()) {
+                <app-nav />
+            }
+            <main [class]="mainClass()">
+                <section [class]="sectionClass()">
                     <router-outlet />
                 </section>
             </main>
@@ -19,4 +33,33 @@ import { NavComponent } from "./components/nav.component";
         </div>
     `,
 })
-export class AppComponent {}
+export class AppComponent {
+    private readonly router = inject(Router);
+    private readonly routeData = toSignal(
+        this.router.events.pipe(
+            filter((event) => event instanceof NavigationEnd),
+            startWith(null),
+            map(() => {
+                const data = this.router.routerState.snapshot.root.firstChild?.data;
+                return {
+                    hideNav: Boolean(data?.["hideNav"]),
+                    fullscreen: Boolean(data?.["fullscreen"]),
+                };
+            }),
+        ),
+        { initialValue: INITIAL_LAYOUT_DATA },
+    );
+
+    readonly hideNav = computed(() => this.routeData()?.hideNav ?? false);
+    readonly fullscreen = computed(() => this.routeData()?.fullscreen ?? false);
+    readonly mainClass = computed(() =>
+        this.fullscreen()
+            ? "w-full flex-1"
+            : "mx-auto w-full max-w-5xl flex-1 px-4 py-4",
+    );
+    readonly sectionClass = computed(() =>
+        this.fullscreen()
+            ? "min-h-full"
+            : "min-h-[300px] rounded-xl bg-white p-4 shadow",
+    );
+}

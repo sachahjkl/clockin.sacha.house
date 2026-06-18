@@ -1,11 +1,18 @@
-import { and, asc, between, eq } from "drizzle-orm";
+import { and, asc, between, count, eq } from "drizzle-orm";
 import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import * as XLSX from "xlsx";
 import { z } from "zod";
 import { requireUser } from "../auth.js";
 import { db } from "../db/index.js";
 import { badgeages, type Badgeage, type Slot } from "../db/schema.js";
+import { historyDefaultRange } from "../demo.js";
 import { localeFor, translate, translateRequest, type Language } from "../translation/index.js";
+import {
+    demoExportRows,
+    sendDemoBadgeagesExportIfNeeded,
+    sendDemoHistoryPageIfNeeded,
+} from "./demo-badgeages.js";
+import { sendDemoReadOnlyIfNeeded } from "./demo-response.js";
 
 const slots: Slot[] = ["firstEntry", "firstExit", "secondEntry", "secondExit"];
 const slotSchema = z.enum(["firstEntry", "firstExit", "secondEntry", "secondExit"]);
@@ -136,6 +143,21 @@ const badgeagesRoutes: FastifyPluginAsyncZod = async (fastify) => {
             const user = requireUser(request);
             const { from, to, format, lang } = request.query;
 
+            if (
+                sendDemoBadgeagesExportIfNeeded(reply, user, {
+                    format,
+                    from,
+                    to,
+                    lang,
+                    buildRows: (demoUser, exportFrom, exportTo, exportLang) =>
+                        buildExportRows(demoExportRows(demoUser, exportFrom, exportTo), exportLang),
+                    headers: exportHeaders,
+                    toCsv,
+                })
+            ) {
+                return;
+            }
+
             const records = await db
                 .select()
                 .from(badgeages)
@@ -174,22 +196,35 @@ const badgeagesRoutes: FastifyPluginAsyncZod = async (fastify) => {
             querystring: z.object({
                 from: daySchema.optional(),
                 to: daySchema.optional(),
+                offset: z.coerce.number().int().min(0).default(0),
+                limit: z.coerce.number().int().min(1).max(1000).default(500),
             }),
         },
         handler: async (request, reply) => {
             const user = requireUser(request);
             const now = new Date();
-            const from = request.query.from ?? toISODate(now);
+            const defaults = historyDefaultRange();
+            const from = request.query.from ?? defaults.from;
             const to = request.query.to ?? toISODate(now);
+            const { offset, limit } = request.query;
 
-            const records = await db
-                .select()
-                .from(badgeages)
-                .where(and(eq(badgeages.userId, user.id), between(badgeages.day, from, to)))
-                .orderBy(asc(badgeages.day))
-                .all();
+            if (sendDemoHistoryPageIfNeeded(reply, user, from, to, offset, limit)) {
+                return;
+            }
 
-            return reply.send(records);
+            const where = and(eq(badgeages.userId, user.id), between(badgeages.day, from, to));
+
+            const [records, totalResult] = await Promise.all([
+                db.select().from(badgeages).where(where).orderBy(asc(badgeages.day)).limit(limit).offset(offset).all(),
+                db.select({ value: count() }).from(badgeages).where(where).get(),
+            ]);
+
+            return reply.send({
+                rows: records,
+                total: totalResult?.value ?? 0,
+                offset,
+                limit,
+            });
         },
     });
 
@@ -203,6 +238,9 @@ const badgeagesRoutes: FastifyPluginAsyncZod = async (fastify) => {
         },
         handler: async (request, reply) => {
             const user = requireUser(request);
+            if (sendDemoReadOnlyIfNeeded(request, reply, user)) {
+                return;
+            }
             const timestamp = parseTimestamp(request.body.timestamp);
             const day = toISODate(new Date(timestamp));
 
@@ -246,12 +284,14 @@ const badgeagesRoutes: FastifyPluginAsyncZod = async (fastify) => {
             params: z.object({ id: z.coerce.number().int().positive() }),
             body: z.object({
                 slot: slotSchema,
-                timestamp: timestampSchema,
+                timestamp: timestampSchema.nullable(),
             }),
         },
         handler: async (request, reply) => {
             const user = requireUser(request);
-            const timestamp = parseTimestamp(request.body.timestamp);
+            if (sendDemoReadOnlyIfNeeded(request, reply, user)) {
+                return;
+            }
 
             const existing = await db
                 .select()
@@ -263,9 +303,14 @@ const badgeagesRoutes: FastifyPluginAsyncZod = async (fastify) => {
                     .status(404)
                     .send({ error: translateRequest(request, "errors.notFound") });
 
+            const value =
+                request.body.timestamp !== null
+                    ? parseTimestamp(request.body.timestamp)
+                    : null;
+
             const updated = await db
                 .update(badgeages)
-                .set({ [request.body.slot]: timestamp })
+                .set({ [request.body.slot]: value })
                 .where(and(eq(badgeages.userId, user.id), eq(badgeages.id, request.params.id)))
                 .returning()
                 .get();
@@ -282,6 +327,9 @@ const badgeagesRoutes: FastifyPluginAsyncZod = async (fastify) => {
         },
         handler: async (request, reply) => {
             const user = requireUser(request);
+            if (sendDemoReadOnlyIfNeeded(request, reply, user)) {
+                return;
+            }
 
             const existing = await db
                 .select()

@@ -1,7 +1,10 @@
-import { Component, effect, inject, signal } from "@angular/core";
+import { Component, computed, inject, signal } from "@angular/core";
+import { rxResource } from "@angular/core/rxjs-interop";
 import { debounced } from "@angular/core";
 import { form, FormField, required } from "@angular/forms/signals";
+import { catchError, map, of, startWith } from "rxjs";
 import { AccountService } from "../../core/account.service";
+import { AuthClient } from "../../core/auth.client";
 import { I18nService } from "../../core/i18n.service";
 
 interface RecoverModel {
@@ -10,92 +13,134 @@ interface RecoverModel {
 
 type IdStatus = "idle" | "checking" | "valid" | "invalid";
 
+interface VerifyParams {
+    userId: string;
+}
+
+interface VerifyState {
+    status: IdStatus;
+    error: string | null;
+}
+
 @Component({
     selector: "app-connect",
     standalone: true,
     imports: [FormField],
-    template: `
-        <article class="mx-auto my-3 max-w-2xl space-y-6">
-            <div class="space-y-2">
-                <h1 class="text-2xl font-bold">{{ i18n.t("app.connect") }}</h1>
-                <p class="text-slate-600">
-                    {{ i18n.t("account.help") }} <strong>{{ i18n.t("account.keepId") }}</strong>
-                </p>
-            </div>
-
-            @if (account.error()) {
-                <div class="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-rose-700 shadow-sm">{{ account.error() }}</div>
+    styles: [
+        `
+            .connect-brand-gradient {
+                background-image: linear-gradient(to top right, #60a5fa, #2563eb);
+                -webkit-background-clip: text;
+                background-clip: text;
+                color: transparent;
             }
+        `,
+    ],
+    template: `
+        <article class="min-h-[calc(100vh-96px)] px-4 py-8 sm:px-6 sm:py-10">
+            <div class="mx-auto max-w-6xl">
+                <section class="relative overflow-hidden px-2 py-4 sm:px-4 sm:py-6 lg:px-6 lg:py-8">
+                    <div class="mx-auto max-w-3xl space-y-6">
+                        <h1 class="text-center text-6xl font-black tracking-tight drop-shadow-[0_4px_0_rgba(255,255,255,0.9)] sm:text-7xl lg:text-8xl">
+                            <span class="connect-brand-gradient inline-block w-[9ch]">Clock-in</span>
+                        </h1>
+                        <p class="-mt-2 text-center text-base font-medium italic text-slate-600 sm:text-lg">
+                            Votre badgeuse, rien de plus
+                        </p>
 
-            <fieldset class="grid grid-cols-1 gap-6 rounded border p-5 shadow-sm">
-                <legend class="px-2 text-xl font-bold">{{ i18n.t("account.access") }}</legend>
+                        <div class="rounded-[1.75rem] border border-slate-200 bg-white p-5 text-slate-900 shadow-sm sm:p-6">
+                            <div class="space-y-1 text-center">
+                                <h2 class="text-2xl font-bold text-slate-900">
+                                    Ouvre un accès instantané.
+                                </h2>
+                            </div>
 
-                <div class="space-y-3">
-                    <span class="block text-sm font-medium text-slate-700">{{ i18n.t("account.createAccess") }}</span>
-                    <button
-                        class="inline-flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-400 to-emerald-500 px-4 py-2 text-center font-semibold text-white shadow-sm transition hover:from-emerald-500 hover:to-emerald-600 hover:outline hover:outline-black/20 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
-                        [disabled]="account.loading()"
-                        (click)="account.create()"
-                    >
-                        @if (account.loading()) {
-                            {{ i18n.t("account.creating") }}
-                        } @else {
-                            {{ i18n.t("account.create") }}
-                        }
-                    </button>
-                </div>
+                            <div class="mt-5 flex flex-col items-center gap-2 sm:flex-row sm:justify-center">
+                                <button
+                                    class="inline-flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-400 to-emerald-500 px-4 py-2 text-center font-semibold text-white shadow-sm transition hover:from-emerald-500 hover:to-emerald-600 hover:outline hover:outline-black/20 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
+                                    [disabled]="account.loading()"
+                                    (click)="account.create()"
+                                >
+                                    @if (account.loading()) {
+                                        {{ i18n.t("account.creating") }}
+                                    } @else {
+                                        {{ i18n.t("account.create") }}
+                                    }
+                                </button>
+                                <button
+                                    type="button"
+                                    class="inline-flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-violet-400 to-violet-500 px-4 py-2 text-center font-semibold text-white shadow-sm transition hover:from-violet-500 hover:to-violet-600 hover:outline hover:outline-black/20 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
+                                    [disabled]="account.loading()"
+                                    (click)="tryDemo()"
+                                >
+                                    {{ i18n.t("account.tryDemo") }}
+                                </button>
+                            </div>
+                        </div>
 
-                <section class="space-y-4">
-                    <label class="block text-sm font-medium text-slate-700">{{ i18n.t("account.recoverAccess") }}</label>
-                    <form class="flex flex-col gap-2 sm:flex-row" (submit)="onSubmit($event)">
-                        <input
-                            type="password"
-                            id="identifiant"
-                            autocomplete="current-password"
-                            class="block w-full rounded-xl border px-3 py-2.5 text-slate-900 outline-none transition focus:ring-0"
-                            [class.border-transparent]="!recoverForm.recoverId().touched() || recoverForm.recoverId().valid()"
-                            [class.border-rose-300]="recoverForm.recoverId().touched() && recoverForm.recoverId().invalid()"
-                            [class.bg-rose-50]="recoverForm.recoverId().touched() && recoverForm.recoverId().invalid()"
-                            [class.bg-slate-100]="!recoverForm.recoverId().touched() || recoverForm.recoverId().valid()"
-                            [class.focus:border-slate-300]="!recoverForm.recoverId().touched() || recoverForm.recoverId().valid()"
-                            [class.focus:border-rose-300]="recoverForm.recoverId().touched() && recoverForm.recoverId().invalid()"
-                            [formField]="recoverForm.recoverId"
-                            [placeholder]="i18n.t('account.pasteId')"
-                        />
-                        <button type="submit"
-                            class="text-center basis-[30%] rounded-xl bg-gradient-to-r px-4 py-2 text-center font-semibold text-white shadow-sm transition hover:outline hover:outline-black/20 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
-                            [class.from-emerald-400]="idStatus() === 'valid'"
-                            [class.to-emerald-500]="idStatus() === 'valid'"
-                            [class.hover:from-emerald-500]="idStatus() === 'valid'"
-                            [class.hover:to-emerald-600]="idStatus() === 'valid'"
-                            [class.from-sky-400]="idStatus() !== 'valid'"
-                            [class.to-sky-500]="idStatus() !== 'valid'"
-                            [class.hover:from-sky-500]="idStatus() !== 'valid'"
-                            [class.hover:to-sky-600]="idStatus() !== 'valid'"
-                            [disabled]="idStatus() !== 'valid' || account.loading()"
-                        >
-                            @if (idStatus() === 'checking') {
-                                {{ i18n.t("account.recovering") }}
-                            } @else if (idStatus() === 'valid') {
-                                ✓ {{ i18n.t("account.recover") }}
-                            } @else {
-                                {{ i18n.t("account.recover") }}
+                        <div class="rounded-[1.75rem] border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+                            <div class="space-y-1">
+                                <h2 class="text-2xl font-bold text-slate-900">
+                                    {{ i18n.t("account.recoverAccess") }}
+                                </h2>
+                            </div>
+
+                            <form class="mt-5 flex flex-col gap-2 sm:flex-row" (submit)="onSubmit($event)">
+                                <input
+                                    type="password"
+                                    id="identifiant"
+                                    autocomplete="current-password"
+                                    class="block w-full rounded-xl border px-3 py-2.5 text-slate-900 outline-none transition focus:ring-0"
+                                    [class.border-transparent]="!recoverForm.recoverId().touched() || recoverForm.recoverId().valid()"
+                                    [class.border-rose-300]="recoverForm.recoverId().touched() && recoverForm.recoverId().invalid()"
+                                    [class.bg-rose-50]="recoverForm.recoverId().touched() && recoverForm.recoverId().invalid()"
+                                    [class.bg-slate-100]="!recoverForm.recoverId().touched() || recoverForm.recoverId().valid()"
+                                    [class.focus:border-slate-300]="!recoverForm.recoverId().touched() || recoverForm.recoverId().valid()"
+                                    [class.focus:border-rose-300]="recoverForm.recoverId().touched() && recoverForm.recoverId().invalid()"
+                                    [formField]="recoverForm.recoverId"
+                                    [placeholder]="i18n.t('account.pasteId')"
+                                />
+                                <button type="submit"
+                                    class="text-center basis-[30%] rounded-xl bg-gradient-to-r px-4 py-2 text-center font-semibold text-white shadow-sm transition hover:outline hover:outline-black/20 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
+                                    [class.from-emerald-400]="idStatus() === 'valid'"
+                                    [class.to-emerald-500]="idStatus() === 'valid'"
+                                    [class.hover:from-emerald-500]="idStatus() === 'valid'"
+                                    [class.hover:to-emerald-600]="idStatus() === 'valid'"
+                                    [class.from-sky-400]="idStatus() !== 'valid'"
+                                    [class.to-sky-500]="idStatus() !== 'valid'"
+                                    [class.hover:from-sky-500]="idStatus() !== 'valid'"
+                                    [class.hover:to-sky-600]="idStatus() !== 'valid'"
+                                    [disabled]="idStatus() !== 'valid' || account.loading()"
+                                >
+                                    @if (idStatus() === 'checking') {
+                                        {{ i18n.t("account.recovering") }}
+                                    } @else if (idStatus() === 'valid') {
+                                        ✓ {{ i18n.t("account.recover") }}
+                                    } @else {
+                                        {{ i18n.t("account.recover") }}
+                                    }
+                                </button>
+                            </form>
+                            @if (idStatus() === 'invalid' && idError()) {
+                                <p class="mt-3 text-sm text-rose-600">{{ idError() }}</p>
                             }
-                        </button>
-                    </form>
-                    @if (idStatus() === 'invalid' && idError()) {
-                        <p class="text-sm text-rose-600">{{ idError() }}</p>
-                    }
+                        </div>
+                    </div>
                 </section>
-            </fieldset>
+
+                @if (account.error()) {
+                    <div class="mx-auto mt-6 max-w-3xl rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-rose-700 shadow-sm">
+                        {{ account.error() }}
+                    </div>
+                }
+            </div>
         </article>
     `,
 })
 export class ConnectComponent {
+    private readonly authClient = inject(AuthClient);
     protected readonly account = inject(AccountService);
     protected readonly i18n = inject(I18nService);
-    readonly idStatus = signal<IdStatus>("idle");
-    readonly idError = signal<string | null>(null);
 
     private readonly recoverModel = signal<RecoverModel>({ recoverId: "" });
     readonly recoverForm = form(this.recoverModel, (schema) => {
@@ -103,45 +148,55 @@ export class ConnectComponent {
     });
 
     private readonly debouncedId = debounced(() => this.recoverForm.recoverId().value(), 150);
-
-    constructor() {
-        effect(() => {
-            const id = this.debouncedId.value();
-            if (!id?.trim()) {
-                this.idStatus.set("idle");
-                this.idError.set(null);
-                return;
+    private readonly verifyResource = rxResource<VerifyState, VerifyParams | undefined>({
+        params: () => verifyParams(this.debouncedId.value()),
+        stream: ({ params }) => {
+            if (!params?.userId) {
+                return of(idleVerifyState());
             }
-            void this.verify(id);
-        });
-    }
 
-    private async verify(id: string): Promise<void> {
-        this.idStatus.set("checking");
-        this.idError.set(null);
-        try {
-            const res = await fetch("/api/auth/verify", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ userId: id.trim() }),
-            });
-            if (res.status === 404) {
-                this.idStatus.set("invalid");
-                this.idError.set(this.i18n.t("account.unknown"));
-            } else if (res.ok) {
-                this.idStatus.set("valid");
-            } else {
-                this.idStatus.set("invalid");
-                this.idError.set(this.i18n.t("errors.requestFailed"));
-            }
-        } catch {
-            this.idStatus.set("invalid");
-            this.idError.set(this.i18n.t("errors.requestFailed"));
-        }
-    }
+            return this.authClient.verifyAccount(params.userId).pipe(
+                map(() => validVerifyState()),
+                startWith(checkingVerifyState()),
+                catchError((error: unknown) =>
+                    of(invalidVerifyState(error, this.i18n.t("errors.requestFailed"))),
+                ),
+            );
+        },
+    });
+    readonly idStatus = computed(() => this.verifyResource.value()?.status ?? "idle");
+    readonly idError = computed(() => this.verifyResource.value()?.error ?? null);
 
     onSubmit(event: Event): void {
         event.preventDefault();
         this.account.recover(this.recoverModel().recoverId);
     }
+
+    tryDemo(): void {
+        this.account.recover("demo");
+    }
+}
+
+function verifyParams(userId: string | undefined): VerifyParams | undefined {
+    const trimmed = userId?.trim();
+    return trimmed ? { userId: trimmed } : undefined;
+}
+
+function idleVerifyState(): VerifyState {
+    return { status: "idle", error: null };
+}
+
+function checkingVerifyState(): VerifyState {
+    return { status: "checking", error: null };
+}
+
+function validVerifyState(): VerifyState {
+    return { status: "valid", error: null };
+}
+
+function invalidVerifyState(error: unknown, fallback: string): VerifyState {
+    return {
+        status: "invalid",
+        error: error instanceof Error ? error.message : fallback,
+    };
 }

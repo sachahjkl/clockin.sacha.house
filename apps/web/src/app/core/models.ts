@@ -15,4 +15,16 @@ export interface Badgeage {
     userId: number;
 }
 
+export interface HomeData {
+    profile: User;
+    badgeages: Badgeage[];
+}
+
+export interface HistoryPageData {
+    rows: Badgeage[];
+    total: number;
+    offset: number;
+    limit: number;
+}
+
 export type Slot = "firstEntry" | "firstExit" | "secondEntry" | "secondExit";

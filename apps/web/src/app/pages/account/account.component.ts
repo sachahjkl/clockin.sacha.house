@@ -1,10 +1,11 @@
-import { Component, OnInit, inject, signal } from "@angular/core";
+import { Component, inject, input, linkedSignal, signal } from "@angular/core";
+import { finalize } from "rxjs";
 import { Router } from "@angular/router";
 import { CopyableIdComponent } from "../../components/copyable-id.component";
-import { ApiService } from "../../core/api.service";
 import { AccountService } from "../../core/account.service";
 import { I18nService } from "../../core/i18n.service";
 import type { User } from "../../core/models";
+import { ProfileClient } from "../../core/profile.client";
 
 @Component({
     selector: "app-account",
@@ -108,64 +109,64 @@ import type { User } from "../../core/models";
         </article>
     `,
 })
-export class AccountComponent implements OnInit {
-    private readonly api = inject(ApiService);
+export class AccountComponent {
+    private readonly profileClient = inject(ProfileClient);
     protected readonly account = inject(AccountService);
     protected readonly i18n = inject(I18nService);
     private readonly router = inject(Router);
+    protected readonly resolvedProfile = input.required<User>({ alias: "profile" });
     protected readonly error = signal<string | null>(null);
     protected readonly success = signal<string | null>(null);
-    protected readonly name = signal("");
-    protected readonly email = signal("");
+    protected readonly name = linkedSignal(() => this.resolvedProfile().name ?? "");
+    protected readonly email = linkedSignal(() => this.resolvedProfile().email ?? "");
     protected readonly profilePending = signal(false);
     protected readonly deletePending = signal(false);
 
-    ngOnInit(): void {
-        this.loadProfile().catch((e) => this.error.set(e instanceof Error ? e.message : "Erreur"));
-    }
-
-    async saveProfile(event: SubmitEvent): Promise<void> {
+    saveProfile(event: SubmitEvent): void {
         event.preventDefault();
 
         this.profilePending.set(true);
         this.error.set(null);
         this.success.set(null);
-        try {
-            const profile = await this.api.patch<User>("/me", {
-                name: this.name(),
-                email: this.email(),
+        this.profileClient
+            .update({ name: this.name(), email: this.email() })
+            .pipe(finalize(() => this.profilePending.set(false)))
+            .subscribe({
+                next: (profile) => {
+                    this.applyProfile(profile);
+                    this.success.set(this.i18n.t("account.profileSaved"));
+                },
+                error: (error: unknown) => {
+                    this.error.set(errorMessage(error, this.i18n));
+                },
             });
-            this.applyProfile(profile);
-            this.success.set(this.i18n.t("account.profileSaved"));
-        } catch (e) {
-            this.error.set(e instanceof Error ? e.message : "Erreur");
-        } finally {
-            this.profilePending.set(false);
-        }
     }
 
-    async deleteAccount(): Promise<void> {
+    deleteAccount(): void {
         if (!confirm(this.i18n.t("account.deleteConfirm"))) return;
 
         this.deletePending.set(true);
         this.error.set(null);
-        try {
-            await this.api.delete("/me");
-            this.account.clear();
-            await this.router.navigate(["/connect"]);
-        } catch (e) {
-            this.error.set(e instanceof Error ? e.message : "Erreur");
-        } finally {
-            this.deletePending.set(false);
-        }
-    }
-
-    private async loadProfile(): Promise<void> {
-        this.applyProfile(await this.api.get<User>("/me"));
+        this.profileClient
+            .delete()
+            .pipe(finalize(() => this.deletePending.set(false)))
+            .subscribe({
+                next: () => {
+                    this.account.clear();
+                    void this.router.navigate(["/connect"]);
+                },
+                error: (error: unknown) => {
+                    this.error.set(errorMessage(error, this.i18n));
+                },
+            });
     }
 
     private applyProfile(profile: User): void {
         this.name.set(profile.name ?? "");
         this.email.set(profile.email ?? "");
     }
+}
+
+function errorMessage(error: unknown, i18n: I18nService): string {
+    return error instanceof Error ? error.message : i18n.t("errors.requestFailed");
 }

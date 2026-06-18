@@ -1,4 +1,4 @@
-import { Component, inject, output, signal } from "@angular/core";
+import { Component, inject, input, output, signal } from "@angular/core";
 import { I18nService } from "../core/i18n.service";
 
 interface Sparkle {
@@ -56,13 +56,14 @@ interface Sparkle {
     ],
     template: `
         <div class="relative inline-block w-full">
-            <button
-                type="button"
-                class="badge-btn cursor-pointer w-full whitespace-nowrap rounded-3xl bg-gradient-to-r from-yellow-200 to-yellow-300 grow py-10 font-bold text-slate-900 shadow transition disabled:grayscale disabled:active:translate-y-0 text-6xl [&:not(:disabled)]:hover:shadow-lg [&:not(:disabled)]:active:translate-y-2 [&:not(:disabled)]:active:shadow-xl"
-                (click)="badge.emit()"
-                (mousemove)="onMouseMove($event)"
-                (mouseleave)="sparkles.set([])"
-            >
+                <button
+                    type="button"
+                    [disabled]="disabled()"
+                    class="badge-btn w-full cursor-pointer whitespace-nowrap rounded-3xl bg-gradient-to-r from-yellow-200 to-yellow-300 py-10 font-bold text-slate-900 shadow transition disabled:grayscale disabled:active:translate-y-0 text-6xl [&:not(:disabled)]:hover:shadow-lg [&:not(:disabled)]:active:translate-y-2 [&:not(:disabled)]:active:shadow-xl"
+                    (click)="badge.emit()"
+                    (mousemove)="onMouseMove($event)"
+                    (mouseleave)="sparkles.set([])"
+                >
                 <span class="mr-3 inline-block hand-bounce">👆</span>
                 <span>{{ i18n.t("badge.button") }}</span>
             </button>
@@ -80,6 +81,7 @@ interface Sparkle {
 })
 export class BadgeageButtonComponent {
     protected readonly i18n = inject(I18nService);
+    readonly disabled = input(false);
     badge = output<void>();
     readonly sparkles = signal<Sparkle[]>([]);
     private sparkleId = 0;

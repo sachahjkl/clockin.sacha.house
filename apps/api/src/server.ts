@@ -9,6 +9,7 @@ import { fileURLToPath } from "node:url";
 import { migrate } from "drizzle-orm/libsql/migrator";
 import { populateUser } from "./auth.js";
 import { db } from "./db/index.js";
+import { ensureDevFixture } from "./dev-fixture.js";
 import authRoutes from "./routes/auth.js";
 import meRoutes from "./routes/me.js";
 import badgeagesRoutes from "./routes/badgeages.js";
@@ -28,6 +29,7 @@ const staticPath = process.env.WEB_DIST
 
 async function main() {
     await migrate(db, { migrationsFolder: path.resolve(__dirname, "../drizzle") });
+    await ensureDevFixture();
 
     const fastify = Fastify({ logger: true });
     fastify.setValidatorCompiler(validatorCompiler);

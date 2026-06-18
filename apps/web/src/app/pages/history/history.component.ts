@@ -1,17 +1,23 @@
-import { Component, OnInit, computed, effect, inject, signal } from "@angular/core";
-import { DatePipe } from "@angular/common";
-import { Router } from "@angular/router";
-import { ApiService } from "../../core/api.service";
-import { AccountService } from "../../core/account.service";
+import { Component, computed, inject, input, linkedSignal, signal } from "@angular/core";
+import { finalize } from "rxjs";
+import { BadgeagesClient } from "../../core/badgeages.client";
+import { HistoryVirtualListComponent } from "../../components/history-virtual-list.component";
 import { I18nService, type TranslationKey } from "../../core/i18n.service";
-import type { Badgeage } from "../../core/models";
+import type { Badgeage, HistoryPageData } from "../../core/models";
+
+interface HistoryPageRequest {
+    offset: number;
+    limit: number;
+}
+
+const HISTORY_PAGE_SIZE = 500;
 
 @Component({
     selector: "app-history",
     standalone: true,
-    imports: [DatePipe],
+    imports: [HistoryVirtualListComponent],
     template: `
-        <article class="mx-auto w-full min-w-[300px] space-y-4">
+        <article class="mx-auto w-full space-y-4">
             <h1 class="text-2xl font-bold">{{ i18n.t("app.history") }}</h1>
 
             <section class="rounded-xl bg-slate-50 p-4 shadow-sm ring-1 ring-black/5">
@@ -103,94 +109,22 @@ import type { Badgeage } from "../../core/models";
                 </div>
             }
 
-            <div class="overflow-hidden rounded-xl bg-white shadow">
-                <div class="overflow-x-auto">
-                    <table class="w-full border-separate border-spacing-0 text-left text-sm">
-                        <thead class="bg-slate-100 text-slate-600">
-                            <tr>
-                                <th class="whitespace-nowrap px-4 py-3 font-semibold">
-                                    {{ i18n.t("table.day") }}
-                                </th>
-                                <th class="whitespace-nowrap px-4 py-3 font-semibold">
-                                    {{ i18n.t("table.firstEntry") }}
-                                </th>
-                                <th class="whitespace-nowrap px-4 py-3 font-semibold">
-                                    {{ i18n.t("table.firstExit") }}
-                                </th>
-                                <th class="whitespace-nowrap px-4 py-3 font-semibold">
-                                    {{ i18n.t("table.secondEntry") }}
-                                </th>
-                                <th class="whitespace-nowrap px-4 py-3 font-semibold">
-                                    {{ i18n.t("table.secondExit") }}
-                                </th>
-                                <th class="whitespace-nowrap px-4 py-3 font-semibold"></th>
-                            </tr>
-                        </thead>
-                        <tbody class="bg-white">
-                            @for (b of badgeages(); track b.id) {
-                                <tr class="border-t border-slate-100">
-                                    <td
-                                        class="whitespace-nowrap px-4 py-3 font-semibold text-slate-800"
-                                    >
-                                        {{
-                                            b.day
-                                                | date: "mediumDate" : undefined : i18n.dateLocale()
-                                        }}
-                                    </td>
-                                    <td class="whitespace-nowrap px-4 py-3 text-slate-600">
-                                        {{
-                                            b.firstEntry
-                                                | date: "HH:mm:ss" : undefined : i18n.dateLocale()
-                                        }}
-                                    </td>
-                                    <td class="whitespace-nowrap px-4 py-3 text-slate-600">
-                                        {{
-                                            b.firstExit
-                                                | date: "HH:mm:ss" : undefined : i18n.dateLocale()
-                                        }}
-                                    </td>
-                                    <td class="whitespace-nowrap px-4 py-3 text-slate-600">
-                                        {{
-                                            b.secondEntry
-                                                | date: "HH:mm:ss" : undefined : i18n.dateLocale()
-                                        }}
-                                    </td>
-                                    <td class="whitespace-nowrap px-4 py-3 text-slate-600">
-                                        {{
-                                            b.secondExit
-                                                | date: "HH:mm:ss" : undefined : i18n.dateLocale()
-                                        }}
-                                    </td>
-                                    <td class="whitespace-nowrap px-4 py-3">
-                                        <button
-                                            class="inline-flex cursor-pointer items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-rose-400 to-rose-500 px-4 py-1 text-center text-xs font-semibold text-white shadow-sm transition hover:from-rose-500 hover:to-rose-600 hover:outline hover:outline-black/20 active:scale-[0.98]"
-                                            (click)="remove(b.id)"
-                                        >
-                                            {{ i18n.t("history.delete") }}
-                                        </button>
-                                    </td>
-                                </tr>
-                            } @empty {
-                                <tr>
-                                    <td colspan="6" class="px-4 py-8 text-center text-slate-400">
-                                        {{ i18n.t("app.noData") }}
-                                    </td>
-                                </tr>
-                            }
-                        </tbody>
-                    </table>
-                </div>
-            </div>
+            <app-history-virtual-list
+                [badgeages]="badgeages()"
+                [total]="total()"
+                (deleteBadgeage)="remove($event)"
+                (loadPage)="loadPage($event)"
+            />
         </article>
     `,
 })
-export class HistoryComponent implements OnInit {
-    private api = inject(ApiService);
-    private account = inject(AccountService);
-    private router = inject(Router);
+export class HistoryComponent {
+    private readonly badgeagesClient = inject(BadgeagesClient);
     protected readonly i18n = inject(I18nService);
+    protected readonly resolvedBadgeages = input.required<HistoryPageData>({ alias: "badgeages" });
 
-    readonly badgeages = signal<Badgeage[]>([]);
+    readonly total = linkedSignal(() => this.resolvedBadgeages().total);
+    readonly badgeages = linkedSignal(() => toSparseBadgeages(this.resolvedBadgeages()));
     readonly error = signal<string | null>(null);
     readonly exportPresets = EXPORT_PRESETS;
     readonly exportPreset = signal<ExportPresetId>("lastMonth");
@@ -198,25 +132,8 @@ export class HistoryComponent implements OnInit {
     readonly exportPending = signal(false);
     readonly exportError = signal<string | null>(null);
     readonly exportRangeInvalid = computed(() => this.exportRange().from > this.exportRange().to);
-
-    constructor() {
-        effect(() => {
-            if (!this.account.userId()) {
-                void this.router.navigate(["/account"]);
-            }
-        });
-    }
-
-    ngOnInit(): void {
-        if (this.account.userId()) {
-            this.load().catch((e) => this.error.set(e.message));
-        }
-    }
-
-    async load(): Promise<void> {
-        const data = await this.api.get<Badgeage[]>("/badgeages?from=1970-01-01&to=2099-12-31");
-        this.badgeages.set(data);
-    }
+    private readonly loadedPages = new Set<string>([pageKey(0, HISTORY_PAGE_SIZE)]);
+    private readonly pendingPages = new Set<string>();
 
     onPresetChange(value: ExportPresetId): void {
         this.exportPreset.set(value);
@@ -238,41 +155,77 @@ export class HistoryComponent implements OnInit {
         this.exportRange.update((range) => ({ ...range, to: value }));
     }
 
-    async exportCsv(): Promise<void> {
-        await this.downloadExport("csv");
+    exportCsv(): void {
+        this.downloadExport("csv");
     }
 
-    async exportXlsx(): Promise<void> {
-        await this.downloadExport("xlsx");
+    exportXlsx(): void {
+        this.downloadExport("xlsx");
     }
 
-    async remove(id: number): Promise<void> {
+    remove(id: number): void {
         this.error.set(null);
-        try {
-            await this.api.delete(`/badgeages/${id}`);
-            await this.load();
-        } catch (e) {
-            this.error.set(e instanceof Error ? e.message : "Erreur");
-        }
+        this.badgeagesClient.delete(id).subscribe({
+            next: () => {
+                this.badgeages.update((items) => {
+                    const index = items.findIndex((item) => item?.id === id);
+                    if (index === -1) {
+                        return items;
+                    }
+
+                    const copy = [...items];
+                    copy.splice(index, 1);
+                    return copy;
+                });
+                this.total.update((value) => Math.max(0, value - 1));
+            },
+            error: (error: unknown) => {
+                this.error.set(errorMessage(error, this.i18n));
+            },
+        });
     }
 
-    private async downloadExport(format: "csv" | "xlsx"): Promise<void> {
+    loadPage(request: HistoryPageRequest): void {
+        const offset = Math.max(0, Math.floor(request.offset / HISTORY_PAGE_SIZE) * HISTORY_PAGE_SIZE);
+        const limit = HISTORY_PAGE_SIZE;
+        const key = pageKey(offset, limit);
+        if (this.loadedPages.has(key) || this.pendingPages.has(key) || pageLoaded(this.badgeages(), offset, limit)) {
+            return;
+        }
+
+        this.pendingPages.add(key);
+        this.badgeagesClient.loadHistoryPage(offset, limit).subscribe({
+            next: (page) => {
+                this.pendingPages.delete(key);
+                this.loadedPages.add(key);
+                this.total.set(page.total);
+                this.badgeages.update((items) => mergePage(items, page));
+            },
+            error: (error: unknown) => {
+                this.pendingPages.delete(key);
+                this.error.set(errorMessage(error, this.i18n));
+            },
+        });
+    }
+
+    private downloadExport(format: "csv" | "xlsx"): void {
         if (this.exportRangeInvalid()) return;
 
         this.exportPending.set(true);
         this.exportError.set(null);
 
-        try {
-            const range = this.exportRange();
-            const blob = await this.api.getBlob(
-                `/badgeages/export?from=${range.from}&to=${range.to}&format=${format}&lang=${this.i18n.language()}`,
-            );
-            downloadBlob(blob, `clockin-${range.from}_to_${range.to}.${format}`);
-        } catch (e) {
-            this.exportError.set(e instanceof Error ? e.message : "Export impossible");
-        } finally {
-            this.exportPending.set(false);
-        }
+        const range = this.exportRange();
+        this.badgeagesClient
+            .export(range.from, range.to, format)
+            .pipe(finalize(() => this.exportPending.set(false)))
+            .subscribe({
+                next: (blob) => {
+                    downloadBlob(blob, `clockin-${range.from}_to_${range.to}.${format}`);
+                },
+                error: (error: unknown) => {
+                    this.exportError.set(errorMessage(error, this.i18n));
+                },
+            });
     }
 }
 
@@ -328,4 +281,55 @@ function downloadBlob(blob: Blob, fileName: string): void {
     link.download = fileName;
     link.click();
     URL.revokeObjectURL(url);
+}
+
+function errorMessage(error: unknown, i18n: I18nService): string {
+    return error instanceof Error ? error.message : i18n.t("errors.requestFailed");
+}
+
+function toSparseBadgeages(page: HistoryPageData): Array<Badgeage | null> {
+    const items = Array.from<Badgeage | null>({ length: page.total }).fill(null);
+    for (let index = 0; index < page.rows.length; index++) {
+        items[page.offset + index] = page.rows[index] ?? null;
+    }
+    return items;
+}
+
+function mergePage(items: Array<Badgeage | null>, page: HistoryPageData): Array<Badgeage | null> {
+    const next = ensureLength(items, page.total);
+    for (let index = 0; index < page.rows.length; index++) {
+        next[page.offset + index] = page.rows[index] ?? null;
+    }
+    return next;
+}
+
+function ensureLength(items: Array<Badgeage | null>, total: number): Array<Badgeage | null> {
+    if (items.length === total) {
+        return [...items];
+    }
+
+    const next = Array.from<Badgeage | null>({ length: total }).fill(null);
+    for (let index = 0; index < Math.min(items.length, total); index++) {
+        next[index] = items[index] ?? null;
+    }
+    return next;
+}
+
+function pageLoaded(items: Array<Badgeage | null>, offset: number, limit: number): boolean {
+    const end = Math.min(items.length, offset + limit);
+    if (offset >= end) {
+        return true;
+    }
+
+    for (let index = offset; index < end; index++) {
+        if (items[index] === null) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+function pageKey(offset: number, limit: number): string {
+    return `${offset}:${limit}`;
 }
