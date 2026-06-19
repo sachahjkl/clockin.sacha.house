@@ -11,7 +11,7 @@
     "lang": "fr",
     "icons": [
         {
-            "src": "assets/pwa-icon.png",
+            "src": "assets/pwa-rounded.png",
             "sizes": "512x512",
             "type": "image/png",
             "purpose": "any"

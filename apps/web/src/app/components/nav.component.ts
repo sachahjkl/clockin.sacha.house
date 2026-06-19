@@ -32,7 +32,14 @@ import { IconComponent } from "./icon.component";
                 class="flex min-h-[40px] max-w-5xl flex-wrap items-center justify-between gap-4 mx-auto"
             >
                 <a routerLink="/" class="flex items-center gap-2 text-xl">
-                    <img src="assets/app-icon.png" alt="" class="h-8 w-8 shrink-0" />
+                    <picture class="shrink-0">
+                        <source
+                            srcset="assets/app-icon-32.png 32w, assets/app-icon-64.png 64w, assets/app-icon-128.png 128w, assets/app-icon-256.png 256w, assets/app-icon-512.png 512w, assets/app-icon.png 1024w"
+                            sizes="32px"
+                            type="image/png"
+                        />
+                        <img src="assets/app-icon-64.png" alt="" class="h-8 w-8" />
+                    </picture>
                     <span
                         class="inline-block w-[9ch] bg-gradient-to-tr from-blue-400 to-blue-600 bg-clip-text font-extrabold text-transparent underline decoration-blue-200 underline-offset-4 transition hover:from-green-400 hover:to-green-500"
                         >Clock-in</span

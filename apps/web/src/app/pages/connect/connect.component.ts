@@ -33,8 +33,16 @@ interface VerifyState {
             <div class="mx-auto max-w-6xl">
                 <section class="relative overflow-hidden px-2 py-4 sm:px-4 sm:py-6 lg:px-6 lg:py-8">
                     <div class="mx-auto max-w-3xl space-y-6">
-                        <h1 class="text-center text-6xl font-black tracking-tight drop-shadow-[0_4px_0_rgba(255,255,255,0.9)] sm:text-7xl lg:text-8xl">
-                            <span class="inline-block w-[9ch] bg-gradient-to-tr from-blue-400 to-blue-600 bg-clip-text font-extrabold text-transparent transition hover:from-green-400 hover:to-green-500">Clock-in</span>
+                        <h1 class="flex items-center justify-center gap-0.5 text-center text-6xl font-black tracking-tight sm:gap-1 sm:text-7xl lg:text-8xl">
+                            <picture class="shrink-0">
+                                <source
+                                    srcset="assets/app-icon-32.png 32w, assets/app-icon-64.png 64w, assets/app-icon-128.png 128w, assets/app-icon-256.png 256w, assets/app-icon-512.png 512w, assets/app-icon.png 1024w"
+                                    sizes="(min-width: 1024px) 104px, (min-width: 640px) 88px, 72px"
+                                    type="image/png"
+                                />
+                                <img src="assets/app-icon-128.png" alt="" class="h-[4.5rem] w-[4.5rem] sm:h-[5.5rem] sm:w-[5.5rem] lg:h-[6.5rem] lg:w-[6.5rem]" />
+                            </picture>
+                            <span class="inline-block bg-gradient-to-tr from-blue-400 to-blue-600 bg-clip-text font-extrabold text-transparent drop-shadow-[0_4px_0_rgba(255,255,255,0.9)] transition hover:from-green-400 hover:to-green-500">Clock-in</span>
                         </h1>
                         <p class="-mt-2 text-center text-base font-medium italic text-slate-600 sm:text-lg">
                             {{ i18n.t("connect.tagline") }}
