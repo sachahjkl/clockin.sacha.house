@@ -27,12 +27,12 @@ import { IconComponent } from "./icon.component";
         `,
     ],
     template: `
-        <header class="mb-4 w-full border-b border-slate-200/80 bg-white/90 px-4 py-2 shadow-sm backdrop-blur sm:py-4 space-y-2">
+        <header class="mb-4 w-full border-b border-slate-200/80 bg-white px-4 py-2 shadow-sm sm:py-4 space-y-2">
             <div
                 class="flex min-h-[40px] max-w-5xl flex-wrap items-center justify-between gap-4 mx-auto"
             >
                 <a routerLink="/" class="flex items-center gap-2 text-xl">
-                    <app-icon name="schedule" size="2rem" />
+                    <img src="assets/app-icon.png" alt="" class="h-8 w-8 shrink-0" />
                     <span
                         class="inline-block w-[9ch] bg-gradient-to-tr from-blue-400 to-blue-600 bg-clip-text font-extrabold text-transparent underline decoration-blue-200 underline-offset-4 transition hover:from-green-400 hover:to-green-500"
                         >Clock-in</span
