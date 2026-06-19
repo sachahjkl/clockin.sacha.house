@@ -15,7 +15,9 @@ export class I18nService {
         effect(() => {
             const language = this.language();
             this.document.documentElement.lang = language;
-            localStorage.setItem(STORAGE_KEY, language);
+            if (typeof localStorage !== "undefined") {
+                localStorage.setItem(STORAGE_KEY, language);
+            }
         });
     }
 
@@ -42,7 +44,7 @@ export class I18nService {
 const translations = {
     fr: {
         "app.home": "Accueil",
-        "app.clockin": "Badgeage",
+        "app.clockin": "Pointage",
         "app.connect": "Accès",
         "app.history": "Historique",
         "app.logout": "Déconnexion",
@@ -55,23 +57,42 @@ const translations = {
         "app.language": "Langue",
         "app.french": "Français",
         "app.english": "English",
-        "app.noData": "Aucun badgeage",
+        "app.noData": "Aucun pointage",
         "app.notFound": "Page introuvable",
         "app.backHome": "Retour à l'accueil",
         "errors.requestFailed": "La requête a échoué",
         "errors.unauthorized": "Non autorisé",
         "clockin.greeting": "Salut",
-        "greeting.noEntry": "Au boulot",
-        "greeting.firstEntryIn": "Travaille bien",
-        "greeting.firstExitOut": "Bon appétit 😋",
-        "greeting.secondEntryIn": "Bon aprem",
-        "greeting.secondExitOut": "Fin de journée, rentre bien",
-        "badge.button": "Badger",
+        "greeting.noEntry.beforeDawn": "Debout avant le soleil",
+        "greeting.noEntry.morning": "Pret a pointer",
+        "greeting.noEntry.lateMorning": "On demarre quand tu veux",
+        "greeting.noEntry.afternoon": "Encore temps de lancer la journee",
+        "greeting.noEntry.evening": "Service du soir",
+        "greeting.firstEntryIn.earlyBird": "Depart tres matinal",
+        "greeting.firstEntryIn.morning": "Bonne matinee",
+        "greeting.firstEntryIn.lateMorning": "Bien lance",
+        "greeting.firstEntryIn.afternoon": "Service de l'apres-midi",
+        "greeting.firstExitOut.early": "Deja en vadrouille",
+        "greeting.firstExitOut.lunch": "Bon appetit",
+        "greeting.firstExitOut.break": "Bonne pause",
+        "greeting.firstExitOut.late": "Escapade de l'apres-midi",
+        "greeting.secondEntryIn.early": "Retour express",
+        "greeting.secondEntryIn.lunchReturn": "Bon retour",
+        "greeting.secondEntryIn.afternoon": "Bon apres-midi",
+        "greeting.secondEntryIn.late": "Reprise tardive",
+        "greeting.secondExitOut.early": "Journee courte ou mission speciale",
+        "greeting.secondExitOut.afternoon": "Belle journee, souffle un peu",
+        "greeting.secondExitOut.evening": "Fin de journee, rentre bien",
+        "greeting.secondExitOut.night": "Grosse journee, repose-toi bien",
+        "pointage.button": "Pointer",
         "copy.id": "ID",
         "copy.copied": "Copié !",
         "copy.title": "Cliquez pour copier l'identifiant",
+        "toast.pointageSaved": "Pointage enregistre.",
+        "toast.pointageUpdated": "Horaire mis a jour.",
+        "toast.pointageCleared": "Horaire supprime.",
         "table.summary": "Récapitulatif",
-        "table.weekBadgeages": "Badgeages de la semaine",
+        "table.weekPointages": "Pointages de la semaine",
         "table.day": "Jour",
         "table.firstEntry": "Entrée 1",
         "table.firstExit": "Sortie 1",
@@ -80,8 +101,8 @@ const translations = {
         "table.total": "Total",
         "table.weekTotal": "Total semaine",
         "table.editTime": "Modifier l'heure",
-        "table.noneThisWeek": "Aucun badgeage cette semaine",
-        "history.exportTitle": "Exporter les badgeages",
+        "table.noneThisWeek": "Aucun pointage cette semaine",
+        "history.exportTitle": "Exporter les pointages",
         "history.exportHelp": "Choisis une période, puis exporte en CSV ou XLSX.",
         "history.period": "Période",
         "history.from": "Du",
@@ -116,7 +137,7 @@ const translations = {
         "account.identifier": "Identifiant",
         "account.profileTitle": "Profil",
         "account.profileHelp":
-            "Ces informations sont optionnelles. Le nom sert à personnaliser la page de badgeage.",
+            "Ces informations sont optionnelles. Le nom sert à personnaliser la page de pointage.",
         "account.name": "Nom",
         "account.email": "E-mail",
         "account.namePlaceholder": "Ton nom",
@@ -126,11 +147,11 @@ const translations = {
         "account.profileSaved": "Profil enregistré.",
         "account.deleteTitle": "Supprimer le compte",
         "account.deleteHelp":
-            "Cette action supprime définitivement le compte et tous les badgeages associés. Elle est irréversible.",
+            "Cette action supprime définitivement le compte et tous les pointages associés. Elle est irréversible.",
         "account.deleteAction": "Supprimer mon compte",
         "account.deleting": "Suppression...",
         "account.deleteConfirm":
-            "Supprimer définitivement ce compte et tous ses badgeages ? Cette action est irréversible.",
+            "Supprimer définitivement ce compte et tous ses pointages ? Cette action est irréversible.",
         "wizard.eyebrow": "Bienvenue",
         "wizard.step1Title": "Clock-in en 30 secondes",
         "wizard.step1Body":
@@ -142,14 +163,41 @@ const translations = {
         "wizard.idHelp": "Sauvegarde-le maintenant. Sans lui, tu ne pourras pas te reconnecter.",
         "wizard.step3Title": "Le fonctionnement ensuite",
         "wizard.step3Body":
-            "Une fois sur l'accueil, le gros bouton ajoute le prochain badgeage de la journée. Le tableau résume la semaine, et l'historique sert à vérifier puis exporter les données.",
-        "wizard.tip1": "1. Badge depuis l'accueil pour enregistrer tes horaires.",
+            "Une fois sur l'accueil, le gros bouton ajoute le prochain pointage de la journée. Le tableau résume la semaine, et l'historique sert à vérifier puis exporter les données.",
+        "wizard.tip1": "1. Pointe depuis l'accueil pour enregistrer tes horaires.",
         "wizard.tip2": "2. Corrige une heure directement dans le tableau si besoin.",
         "wizard.tip3": "3. Exporte l'historique en CSV ou XLSX depuis l'écran Historique.",
         "wizard.previous": "Précédent",
         "wizard.close": "Fermer",
         "wizard.next": "Suivant",
         "wizard.start": "Commencer",
+        "seo.connect.title": "Accès sans mot de passe",
+        "seo.connect.description":
+            "Crée un accès Clock-in ou reconnecte-toi avec ton identifiant pour pointer et consulter ton historique.",
+        "seo.clockin.title": "Pointage du jour",
+        "seo.clockin.description":
+            "Enregistre rapidement tes entrées et sorties de la journée avec Clock-in.",
+        "seo.history.title": "Historique des pointages",
+        "seo.history.description":
+            "Consulte ton historique de pointages, corrige les horaires et exporte tes données en CSV ou XLSX.",
+        "seo.account.title": "Compte et profil",
+        "seo.account.description":
+            "Gère ton identifiant Clock-in, ton profil et la suppression de ton compte.",
+        "seo.legal.title": "Mentions légales",
+        "seo.legal.description":
+            "Consulte les informations légales et de contact de l'application Clock-in.",
+        "seo.privacy.title": "Confidentialité",
+        "seo.privacy.description":
+            "Découvre quelles données Clock-in traite, pourquoi et pendant combien de temps.",
+        "seo.cookies.title": "Cookies et stockage local",
+        "seo.cookies.description":
+            "Comprends comment Clock-in utilise le stockage local et l'absence de cookies tiers.",
+        "seo.about.title": "À propos de Clock-in",
+        "seo.about.description":
+            "Découvre le fonctionnement de Clock-in, une application simple pour pointer ses horaires.",
+        "seo.notFound.title": "Page introuvable",
+        "seo.notFound.description":
+            "La page demandée est introuvable sur Clock-in. Reviens vers l'accueil ou l'accès au compte.",
     },
     en: {
         "app.home": "Home",
@@ -172,17 +220,36 @@ const translations = {
         "errors.requestFailed": "Request failed",
         "errors.unauthorized": "Unauthorized",
         "clockin.greeting": "Hi",
-        "greeting.noEntry": "Let's get to work",
-        "greeting.firstEntryIn": "Work well",
-        "greeting.firstExitOut": "Enjoy your meal 😋",
-        "greeting.secondEntryIn": "Good afternoon",
-        "greeting.secondExitOut": "End of day, get home safe",
-        "badge.button": "Clock in",
+        "greeting.noEntry.beforeDawn": "Up before sunrise",
+        "greeting.noEntry.morning": "Ready to clock in",
+        "greeting.noEntry.lateMorning": "Whenever you're ready to start",
+        "greeting.noEntry.afternoon": "Still time to kick things off",
+        "greeting.noEntry.evening": "Evening shift mode",
+        "greeting.firstEntryIn.earlyBird": "Bright and early start",
+        "greeting.firstEntryIn.morning": "Have a good morning",
+        "greeting.firstEntryIn.lateMorning": "Already in motion",
+        "greeting.firstEntryIn.afternoon": "Afternoon service starts now",
+        "greeting.firstExitOut.early": "Out already, speedy one",
+        "greeting.firstExitOut.lunch": "Enjoy your meal",
+        "greeting.firstExitOut.break": "Enjoy the break",
+        "greeting.firstExitOut.late": "Afternoon escape detected",
+        "greeting.secondEntryIn.early": "Quick return",
+        "greeting.secondEntryIn.lunchReturn": "Welcome back",
+        "greeting.secondEntryIn.afternoon": "Good afternoon",
+        "greeting.secondEntryIn.late": "Late comeback",
+        "greeting.secondExitOut.early": "Short day or special mission",
+        "greeting.secondExitOut.afternoon": "Nice one, take a breather",
+        "greeting.secondExitOut.evening": "End of day, get home safe",
+        "greeting.secondExitOut.night": "Long day, get some rest",
+        "pointage.button": "Clock in",
         "copy.id": "ID",
         "copy.copied": "Copied!",
         "copy.title": "Click to copy the identifier",
+        "toast.pointageSaved": "Time entry saved.",
+        "toast.pointageUpdated": "Time updated.",
+        "toast.pointageCleared": "Time removed.",
         "table.summary": "Summary",
-        "table.weekBadgeages": "This week's time entries",
+        "table.weekPointages": "This week's time entries",
         "table.day": "Day",
         "table.firstEntry": "Entry 1",
         "table.firstExit": "Exit 1",
@@ -261,6 +328,33 @@ const translations = {
         "wizard.close": "Close",
         "wizard.next": "Next",
         "wizard.start": "Start",
+        "seo.connect.title": "Password-free access",
+        "seo.connect.description":
+            "Create a Clock-in access or sign back in with your identifier to track time and review history.",
+        "seo.clockin.title": "Today's clock-in",
+        "seo.clockin.description":
+            "Quickly record today's entry and exit times with Clock-in.",
+        "seo.history.title": "Time entry history",
+        "seo.history.description":
+            "Review your time entry history, adjust times, and export your data as CSV or XLSX.",
+        "seo.account.title": "Account and profile",
+        "seo.account.description":
+            "Manage your Clock-in identifier, your profile, and account deletion settings.",
+        "seo.legal.title": "Legal notice",
+        "seo.legal.description":
+            "Read the legal and contact information for the Clock-in application.",
+        "seo.privacy.title": "Privacy policy",
+        "seo.privacy.description":
+            "Learn what data Clock-in processes, why it is processed, and how long it is kept.",
+        "seo.cookies.title": "Cookies and local storage",
+        "seo.cookies.description":
+            "Understand how Clock-in uses local storage and avoids third-party tracking cookies.",
+        "seo.about.title": "About Clock-in",
+        "seo.about.description":
+            "Discover how Clock-in works as a simple app for tracking work hours.",
+        "seo.notFound.title": "Page not found",
+        "seo.notFound.description":
+            "The requested page could not be found on Clock-in. Return to the home or access page.",
     },
 } as const;
 

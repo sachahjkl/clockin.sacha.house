@@ -10,7 +10,7 @@ export const users = sqliteTable("users", {
         .$defaultFn(() => new Date()),
 });
 
-export const badgeages = sqliteTable("badgeages", {
+export const pointages = sqliteTable("pointages", {
     id: integer("id").primaryKey({ autoIncrement: true }),
     day: text("day").notNull(),
     firstEntry: text("first_entry"),
@@ -23,6 +23,6 @@ export const badgeages = sqliteTable("badgeages", {
 });
 
 export type User = typeof users.$inferSelect;
-export type Badgeage = typeof badgeages.$inferSelect;
-export type BadgeageInsert = typeof badgeages.$inferInsert;
+export type Pointage = typeof pointages.$inferSelect;
+export type PointageInsert = typeof pointages.$inferInsert;
 export type Slot = "firstEntry" | "firstExit" | "secondEntry" | "secondExit";

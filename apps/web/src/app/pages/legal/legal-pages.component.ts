@@ -13,7 +13,7 @@ const CONTACT_EMAIL = "sacha@sacha.house";
             <h1>{{ i18n.t("app.legal") }}</h1>
             @if (i18n.language() === "fr") {
                 <p>
-                    Ce site est une application personnelle de suivi de badgeages appelée Clock-in.
+                    Ce site est une application personnelle de suivi de pointages appelée Clock-in.
                 </p>
                 <h2>Contact</h2>
                 <p>
@@ -72,7 +72,7 @@ export class LegalPageComponent {
                 </p>
                 <h2>Données traitées</h2>
                 <p>
-                    L'application peut conserver un identifiant de compte, les dates de badgeage,
+                    L'application peut conserver un identifiant de compte, les dates de pointage,
                     les heures d'entrée/sortie et les données techniques nécessaires aux requêtes.
                 </p>
                 <h2>Finalité</h2>
@@ -174,7 +174,7 @@ export class CookiesPageComponent {
             <h1>{{ i18n.t("app.about") }}</h1>
             @if (i18n.language() === "fr") {
                 <p>
-                    Clock-in est une petite application de badgeage pensée pour enregistrer
+                    Clock-in est une petite application de pointage pensée pour enregistrer
                     rapidement les entrées et sorties, corriger les horaires et exporter un
                     historique.
                 </p>

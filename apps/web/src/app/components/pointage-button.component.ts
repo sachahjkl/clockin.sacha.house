@@ -10,7 +10,7 @@ interface Sparkle {
 }
 
 @Component({
-    selector: "app-badgeage-button",
+    selector: "app-pointage-button",
     standalone: true,
     styles: [
         `
@@ -65,12 +65,12 @@ interface Sparkle {
                     type="button"
                     [disabled]="disabled()"
                     class="badge-btn w-full cursor-pointer whitespace-nowrap rounded-3xl bg-gradient-to-r from-yellow-200 to-yellow-300 py-10 font-bold text-slate-900 shadow transition disabled:grayscale disabled:active:translate-y-0 text-6xl [&:not(:disabled)]:hover:shadow-lg [&:not(:disabled)]:active:translate-y-2 [&:not(:disabled)]:active:shadow-xl"
-                    (click)="badge.emit()"
+                    (click)="point.emit()"
                     (mousemove)="onMouseMove($event)"
                     (mouseleave)="sparkles.set([])"
                 >
                 <span class="mr-3 inline-block hand-bounce">👆</span>
-                <span>{{ i18n.t("badge.button") }}</span>
+                <span>{{ i18n.t("pointage.button") }}</span>
             </button>
             @for (s of sparkles(); track s.id) {
                 <div
@@ -84,10 +84,10 @@ interface Sparkle {
         </div>
     `,
 })
-export class BadgeageButtonComponent {
+export class PointageButtonComponent {
     protected readonly i18n = inject(I18nService);
     readonly disabled = input(false);
-    badge = output<void>();
+    point = output<void>();
     readonly sparkles = signal<Sparkle[]>([]);
     private sparkleId = 0;
     private lastSparkleTime = 0;

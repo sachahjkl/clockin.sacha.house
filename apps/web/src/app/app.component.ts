@@ -3,8 +3,10 @@ import { toSignal } from "@angular/core/rxjs-interop";
 import { NavigationEnd, Router, RouterOutlet } from "@angular/router";
 import { filter, map, startWith } from "rxjs";
 import { AccountService } from "./core/account.service";
+import { SeoService } from "./core/seo.service";
 import { FooterComponent } from "./components/footer.component";
 import { NavComponent } from "./components/nav.component";
+import { ToastStackComponent } from "./components/toast-stack.component";
 import { WelcomeWizardComponent } from "./components/welcome-wizard.component";
 
 interface LayoutRouteData {
@@ -20,7 +22,7 @@ const INITIAL_LAYOUT_DATA: LayoutRouteData = {
 @Component({
     selector: "app-root",
     standalone: true,
-    imports: [RouterOutlet, NavComponent, FooterComponent, WelcomeWizardComponent],
+    imports: [RouterOutlet, NavComponent, FooterComponent, ToastStackComponent, WelcomeWizardComponent],
     template: `
         <div class="flex min-h-screen flex-col">
             @if (!hideNav()) {
@@ -32,6 +34,7 @@ const INITIAL_LAYOUT_DATA: LayoutRouteData = {
                 </section>
             </main>
             <app-footer />
+            <app-toast-stack />
             @if (account.welcomeWizardOpen() && account.userId(); as uid) {
                 <app-welcome-wizard
                     [userId]="uid"
@@ -43,6 +46,7 @@ const INITIAL_LAYOUT_DATA: LayoutRouteData = {
 })
 export class AppComponent {
     private readonly router = inject(Router);
+    private readonly seo = inject(SeoService);
     protected readonly account = inject(AccountService);
     private readonly routeData = toSignal(
         this.router.events.pipe(

@@ -68,18 +68,24 @@ export class AccountService {
     clear(): void {
         this.setUserId(null);
         this.welcomeWizardOpen.set(false);
-        localStorage.removeItem(WELCOME_WIZARD_STORAGE_KEY);
+        if (typeof localStorage !== "undefined") {
+            localStorage.removeItem(WELCOME_WIZARD_STORAGE_KEY);
+        }
     }
 
     dismissWelcomeWizard(): void {
         this.welcomeWizardOpen.set(false);
-        localStorage.removeItem(WELCOME_WIZARD_STORAGE_KEY);
+        if (typeof localStorage !== "undefined") {
+            localStorage.removeItem(WELCOME_WIZARD_STORAGE_KEY);
+        }
     }
 
     showHelp(): void {
         if (this.userId()) {
             this.welcomeWizardOpen.set(true);
-            localStorage.setItem(WELCOME_WIZARD_STORAGE_KEY, "1");
+            if (typeof localStorage !== "undefined") {
+                localStorage.setItem(WELCOME_WIZARD_STORAGE_KEY, "1");
+            }
         } else {
             void this.router.navigate(["/connect"]);
         }
@@ -87,11 +93,17 @@ export class AccountService {
 
     private openWelcomeWizard(): void {
         this.welcomeWizardOpen.set(true);
-        localStorage.setItem(WELCOME_WIZARD_STORAGE_KEY, "1");
+        if (typeof localStorage !== "undefined") {
+            localStorage.setItem(WELCOME_WIZARD_STORAGE_KEY, "1");
+        }
     }
 
     private setUserId(id: string | null): void {
         this.userId.set(id);
+        if (typeof localStorage === "undefined") {
+            return;
+        }
+
         if (id === null) {
             localStorage.removeItem(STORAGE_KEY);
         } else {

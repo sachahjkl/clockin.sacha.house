@@ -3,7 +3,7 @@ import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { z } from "zod";
 import { requireUser } from "../auth.js";
 import { db } from "../db/index.js";
-import { badgeages, users } from "../db/schema.js";
+import { pointages, users } from "../db/schema.js";
 import { sendDemoClockinPageDataIfNeeded } from "./demo-me.js";
 import { sendDemoReadOnlyIfNeeded } from "./demo-response.js";
 
@@ -35,9 +35,9 @@ const meRoutes: FastifyPluginAsyncZod = async (fastify) => {
 
             const records = await db
                 .select()
-                .from(badgeages)
-                .where(and(eq(badgeages.userId, user.id), between(badgeages.day, from, to)))
-                .orderBy(asc(badgeages.day))
+                .from(pointages)
+                .where(and(eq(pointages.userId, user.id), between(pointages.day, from, to)))
+                .orderBy(asc(pointages.day))
                 .all();
 
             return reply.send({
@@ -47,7 +47,7 @@ const meRoutes: FastifyPluginAsyncZod = async (fastify) => {
                     email: user.email,
                     createdAt: user.createdAt,
                 },
-                badgeages: records,
+                pointages: records,
             });
         },
     );
@@ -90,7 +90,7 @@ const meRoutes: FastifyPluginAsyncZod = async (fastify) => {
             return;
         }
 
-        await db.delete(badgeages).where(eq(badgeages.userId, user.id)).run();
+        await db.delete(pointages).where(eq(pointages.userId, user.id)).run();
         await db
             .delete(users)
             .where(and(eq(users.id, user.id), eq(users.userId, user.userId)))

@@ -12,6 +12,13 @@ import { IconComponent } from "./icon.component";
     imports: [RouterLink, NavLinkComponent, NavButtonComponent, IconComponent],
     styles: [
         `
+            :host {
+                position: sticky;
+                top: 0;
+                z-index: 40;
+                display: block;
+            }
+
             @media (min-width: 640px) {
                 .burger-btn {
                     display: none;
@@ -20,7 +27,7 @@ import { IconComponent } from "./icon.component";
         `,
     ],
     template: `
-        <header class="sticky top-0 z-20 mb-4 bg-white shadow mx-auto w-full px-4 py-2 sm:py-4 space-y-2 ">
+        <header class="mb-4 w-full border-b border-slate-200/80 bg-white/90 px-4 py-2 shadow-sm backdrop-blur sm:py-4 space-y-2">
             <div
                 class="flex min-h-[40px] max-w-5xl flex-wrap items-center justify-between gap-4 mx-auto"
             >

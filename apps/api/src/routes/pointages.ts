@@ -4,14 +4,14 @@ import * as XLSX from "xlsx";
 import { z } from "zod";
 import { requireUser } from "../auth.js";
 import { db } from "../db/index.js";
-import { badgeages, type Badgeage, type Slot } from "../db/schema.js";
+import { pointages, type Pointage, type Slot } from "../db/schema.js";
 import { historyDefaultRange } from "../demo.js";
 import { localeFor, translate, translateRequest, type Language } from "../translation/index.js";
 import {
     demoExportRows,
-    sendDemoBadgeagesExportIfNeeded,
     sendDemoHistoryPageIfNeeded,
-} from "./demo-badgeages.js";
+    sendDemoPointagesExportIfNeeded,
+} from "./demo-pointages.js";
 import { sendDemoReadOnlyIfNeeded } from "./demo-response.js";
 
 const slots: Slot[] = ["firstEntry", "firstExit", "secondEntry", "secondExit"];
@@ -37,12 +37,12 @@ function parseTimestamp(value: string | number) {
 
 function exportHeaders(language: Language) {
     return [
-        translate(language, "export.badgeages.headers.day"),
-        translate(language, "export.badgeages.headers.firstEntry"),
-        translate(language, "export.badgeages.headers.firstExit"),
-        translate(language, "export.badgeages.headers.secondEntry"),
-        translate(language, "export.badgeages.headers.secondExit"),
-        translate(language, "export.badgeages.headers.total"),
+        translate(language, "export.pointages.headers.day"),
+        translate(language, "export.pointages.headers.firstEntry"),
+        translate(language, "export.pointages.headers.firstExit"),
+        translate(language, "export.pointages.headers.secondEntry"),
+        translate(language, "export.pointages.headers.secondExit"),
+        translate(language, "export.pointages.headers.total"),
     ];
 }
 
@@ -67,7 +67,7 @@ function formatExportDay(value: string, language: Language, iso: boolean) {
     }).format(new Date(`${value}T00:00:00`));
 }
 
-function computeTotalSeconds(record: Badgeage) {
+function computeTotalSeconds(record: Pointage) {
     let totalSeconds = 0;
     for (let i = 0; i < slots.length; i += 2) {
         const start = record[slots[i]];
@@ -90,7 +90,7 @@ function formatDuration(totalSeconds: number) {
     return `${hours}h ${minutes}m ${seconds}s`;
 }
 
-function buildExportRows(records: Badgeage[], language: Language, iso: boolean) {
+function buildExportRows(records: Pointage[], language: Language, iso: boolean) {
     const headers = exportHeaders(language);
     const rows = records.map((record) => ({
         [headers[0]]: formatExportDay(record.day, language, iso),
@@ -102,7 +102,7 @@ function buildExportRows(records: Badgeage[], language: Language, iso: boolean) 
     }));
 
     rows.push({
-        [headers[0]]: translate(language, "export.badgeages.rows.total"),
+        [headers[0]]: translate(language, "export.pointages.rows.total"),
         [headers[1]]: "",
         [headers[2]]: "",
         [headers[3]]: "",
@@ -133,10 +133,10 @@ function escapeCsvValue(value: string) {
     return value;
 }
 
-const badgeagesRoutes: FastifyPluginAsyncZod = async (fastify) => {
+const pointagesRoutes: FastifyPluginAsyncZod = async (fastify) => {
     fastify.route({
         method: "GET",
-        url: "/badgeages/export",
+        url: "/pointages/export",
         schema: {
             querystring: z.object({
                 from: daySchema,
@@ -151,7 +151,7 @@ const badgeagesRoutes: FastifyPluginAsyncZod = async (fastify) => {
             const { from, to, format, lang, iso } = request.query;
 
             if (
-                sendDemoBadgeagesExportIfNeeded(reply, user, {
+                sendDemoPointagesExportIfNeeded(reply, user, {
                     format,
                     from,
                     to,
@@ -168,9 +168,9 @@ const badgeagesRoutes: FastifyPluginAsyncZod = async (fastify) => {
 
             const records = await db
                 .select()
-                .from(badgeages)
-                .where(and(eq(badgeages.userId, user.id), between(badgeages.day, from, to)))
-                .orderBy(asc(badgeages.day))
+                .from(pointages)
+                .where(and(eq(pointages.userId, user.id), between(pointages.day, from, to)))
+                .orderBy(asc(pointages.day))
                 .all();
 
             const rows = buildExportRows(records, lang, iso);
@@ -185,7 +185,7 @@ const badgeagesRoutes: FastifyPluginAsyncZod = async (fastify) => {
 
             const worksheet = XLSX.utils.json_to_sheet(rows);
             const workbook = XLSX.utils.book_new();
-            XLSX.utils.book_append_sheet(workbook, worksheet, "Badgeages");
+            XLSX.utils.book_append_sheet(workbook, worksheet, "Pointages");
             const buffer = XLSX.write(workbook, { type: "buffer", bookType: "xlsx" });
 
             reply.header(
@@ -199,7 +199,7 @@ const badgeagesRoutes: FastifyPluginAsyncZod = async (fastify) => {
 
     fastify.route({
         method: "GET",
-        url: "/badgeages",
+        url: "/pointages",
         schema: {
             querystring: z.object({
                 from: daySchema.optional(),
@@ -220,11 +220,11 @@ const badgeagesRoutes: FastifyPluginAsyncZod = async (fastify) => {
                 return;
             }
 
-            const where = and(eq(badgeages.userId, user.id), between(badgeages.day, from, to));
+            const where = and(eq(pointages.userId, user.id), between(pointages.day, from, to));
 
             const [records, totalResult] = await Promise.all([
-                db.select().from(badgeages).where(where).orderBy(asc(badgeages.day)).limit(limit).offset(offset).all(),
-                db.select({ value: count() }).from(badgeages).where(where).get(),
+                db.select().from(pointages).where(where).orderBy(asc(pointages.day)).limit(limit).offset(offset).all(),
+                db.select({ value: count() }).from(pointages).where(where).get(),
             ]);
 
             return reply.send({
@@ -238,7 +238,7 @@ const badgeagesRoutes: FastifyPluginAsyncZod = async (fastify) => {
 
     fastify.route({
         method: "POST",
-        url: "/badgeages",
+        url: "/pointages",
         schema: {
             body: z.object({
                 timestamp: timestampSchema,
@@ -254,13 +254,13 @@ const badgeagesRoutes: FastifyPluginAsyncZod = async (fastify) => {
 
             let record = await db
                 .select()
-                .from(badgeages)
-                .where(and(eq(badgeages.userId, user.id), eq(badgeages.day, day)))
+                .from(pointages)
+                .where(and(eq(pointages.userId, user.id), eq(pointages.day, day)))
                 .get();
 
             if (!record) {
                 record = await db
-                    .insert(badgeages)
+                    .insert(pointages)
                     .values({ day, userId: user.id, firstEntry: timestamp })
                     .returning()
                     .get();
@@ -275,9 +275,9 @@ const badgeagesRoutes: FastifyPluginAsyncZod = async (fastify) => {
             }
 
             const updated = await db
-                .update(badgeages)
+                .update(pointages)
                 .set({ [nextSlot]: timestamp })
-                .where(and(eq(badgeages.userId, user.id), eq(badgeages.id, record.id)))
+                .where(and(eq(pointages.userId, user.id), eq(pointages.id, record.id)))
                 .returning()
                 .get();
 
@@ -287,7 +287,7 @@ const badgeagesRoutes: FastifyPluginAsyncZod = async (fastify) => {
 
     fastify.route({
         method: "PATCH",
-        url: "/badgeages/:id",
+        url: "/pointages/:id",
         schema: {
             params: z.object({ id: z.coerce.number().int().positive() }),
             body: z.object({
@@ -303,8 +303,8 @@ const badgeagesRoutes: FastifyPluginAsyncZod = async (fastify) => {
 
             const existing = await db
                 .select()
-                .from(badgeages)
-                .where(and(eq(badgeages.userId, user.id), eq(badgeages.id, request.params.id)))
+                .from(pointages)
+                .where(and(eq(pointages.userId, user.id), eq(pointages.id, request.params.id)))
                 .get();
             if (!existing)
                 return reply
@@ -317,9 +317,9 @@ const badgeagesRoutes: FastifyPluginAsyncZod = async (fastify) => {
                     : null;
 
             const updated = await db
-                .update(badgeages)
+                .update(pointages)
                 .set({ [request.body.slot]: value })
-                .where(and(eq(badgeages.userId, user.id), eq(badgeages.id, request.params.id)))
+                .where(and(eq(pointages.userId, user.id), eq(pointages.id, request.params.id)))
                 .returning()
                 .get();
 
@@ -329,7 +329,7 @@ const badgeagesRoutes: FastifyPluginAsyncZod = async (fastify) => {
 
     fastify.route({
         method: "DELETE",
-        url: "/badgeages/:id",
+        url: "/pointages/:id",
         schema: {
             params: z.object({ id: z.coerce.number().int().positive() }),
         },
@@ -341,8 +341,8 @@ const badgeagesRoutes: FastifyPluginAsyncZod = async (fastify) => {
 
             const existing = await db
                 .select()
-                .from(badgeages)
-                .where(and(eq(badgeages.userId, user.id), eq(badgeages.id, request.params.id)))
+                .from(pointages)
+                .where(and(eq(pointages.userId, user.id), eq(pointages.id, request.params.id)))
                 .get();
             if (!existing)
                 return reply
@@ -350,8 +350,8 @@ const badgeagesRoutes: FastifyPluginAsyncZod = async (fastify) => {
                     .send({ error: translateRequest(request, "errors.notFound") });
 
             await db
-                .delete(badgeages)
-                .where(and(eq(badgeages.userId, user.id), eq(badgeages.id, request.params.id)))
+                .delete(pointages)
+                .where(and(eq(pointages.userId, user.id), eq(pointages.id, request.params.id)))
                 .run();
 
             return reply.status(204).send();
@@ -359,4 +359,4 @@ const badgeagesRoutes: FastifyPluginAsyncZod = async (fastify) => {
     });
 };
 
-export default badgeagesRoutes;
+export default pointagesRoutes;

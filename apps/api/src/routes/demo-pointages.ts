@@ -1,8 +1,8 @@
 import type { FastifyReply } from "fastify";
 import * as XLSX from "xlsx";
 import {
-    demoBadgeagesInRange,
     demoHistoryPage,
+    demoPointagesInRange,
     historyDefaultRange,
     isDemoUser,
 } from "../demo.js";
@@ -36,7 +36,7 @@ export function sendDemoHistoryPageIfNeeded(
     return true;
 }
 
-export function sendDemoBadgeagesExportIfNeeded(
+export function sendDemoPointagesExportIfNeeded(
     reply: FastifyReply,
     user: User,
     context: DemoExportContext,
@@ -58,7 +58,7 @@ export function sendDemoBadgeagesExportIfNeeded(
 
     const worksheet = XLSX.utils.json_to_sheet(rows);
     const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Badgeages");
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Pointages");
     const buffer = XLSX.write(workbook, { type: "buffer", bookType: "xlsx" });
 
     void reply.header(
@@ -70,6 +70,6 @@ export function sendDemoBadgeagesExportIfNeeded(
     return true;
 }
 
-export function demoExportRows(user: User, from: string, to: string): ReturnType<typeof demoBadgeagesInRange> {
-    return demoBadgeagesInRange(user, from, to);
+export function demoExportRows(user: User, from: string, to: string): ReturnType<typeof demoPointagesInRange> {
+    return demoPointagesInRange(user, from, to);
 }

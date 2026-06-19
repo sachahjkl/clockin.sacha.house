@@ -25,7 +25,7 @@
 						sqlite
 					];
 
-					npmDepsHash = "sha256-tCzai9DI81xFPLLMRaL1ce87h9Ha49tA8L5DxYFAK1I=";
+					npmDepsHash = "sha256-saNJZlEeNZvDJM/a6zJZg/+MYZhrdA9QTBue6+fjXLc=";
 
 					preBuild = ''
 						export npm_config_build_from_source=true
@@ -39,10 +39,12 @@
 						cp -r node_modules $out/
 						cp -r apps/api/dist apps/api/drizzle $out/apps/api/
 						cp -r apps/web/dist/web/browser $out/apps/web/dist/web/
+						cp -r apps/web/dist/web/server $out/apps/web/dist/web/
 					cat > $out/bin/clockin <<EOF
 #!${pkgs.bash}/bin/bash
 set -euo pipefail
 export WEB_DIST="$out/apps/web/dist/web/browser"
+export WEB_SSR_ENTRY="$out/apps/web/dist/web/server/server.mjs"
 cd "$out"
 exec ${pkgs.nodejs}/bin/node apps/api/dist/server.js "\$@"
 EOF
@@ -109,6 +111,12 @@ EOF
 							default = false;
 							description = "Open the configured port in the firewall.";
 						};
+
+						allowedHosts = mkOption {
+							type = types.listOf types.str;
+							default = [ "clockin.sacha.house" "127.0.0.1" "localhost" ];
+							description = "Allowed Host headers for Angular SSR host validation.";
+						};
 					};
 
 					config = mkIf cfg.enable {
@@ -121,7 +129,7 @@ EOF
 						users.groups.clockin = { };
 
 						systemd.services.clockin = {
-							description = "Clock-in badgeage service";
+						description = "Clock-in pointage service";
 							after = [ "network.target" ];
 							wantedBy = [ "multi-user.target" ];
 
@@ -142,6 +150,7 @@ EOF
 									"HOST=${cfg.host}"
 									"PORT=${toString cfg.port}"
 									"DATABASE_URL=${cfg.databaseDir}/clockin.sqlite"
+									"NG_ALLOWED_HOSTS=${concatStringsSep "," cfg.allowedHosts}"
 								];
 							};
 						};

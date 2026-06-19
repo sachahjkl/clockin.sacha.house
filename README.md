@@ -1,6 +1,6 @@
 # clockin.sacha.house
 
-A small, self-hosted clock-in app for tracking daily badgeages. Built as an Angular SPA served by a Fastify backend, with Drizzle ORM on SQLite, packaged for NixOS.
+A small, self-hosted clock-in app for tracking daily pointages. Built as an Angular SPA served by a Fastify backend, with Drizzle ORM on SQLite, packaged for NixOS.
 
 ## Stack
 

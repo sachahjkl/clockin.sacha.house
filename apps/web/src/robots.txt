@@ -1,0 +1,3 @@
+User-agent: *
+Allow: /
+Sitemap: https://clockin.sacha.house/sitemap.xml

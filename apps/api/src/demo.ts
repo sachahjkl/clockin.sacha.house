@@ -3,7 +3,7 @@ import type { User } from "./db/schema.js";
 export const DEMO_USER_ID = "demo";
 const HISTORY_START_DAY = "1970-01-01";
 
-export interface DemoBadgeage {
+export interface DemoPointage {
     id: number;
     day: string;
     firstEntry: string;
@@ -14,7 +14,7 @@ export interface DemoBadgeage {
 }
 
 export interface DemoHistoryPage {
-    rows: DemoBadgeage[];
+    rows: DemoPointage[];
     total: number;
     offset: number;
     limit: number;
@@ -32,27 +32,27 @@ export function demoHistoryPage(user: User, from: string, to: string, offset: nu
     const total = daySpan(from, to);
     const safeOffset = Math.min(offset, total);
     const safeLimit = Math.min(limit, Math.max(0, total - safeOffset));
-    const rows: DemoBadgeage[] = [];
+    const rows: DemoPointage[] = [];
 
     for (let index = 0; index < safeLimit; index++) {
-        rows.push(demoBadgeage(user.id, addDays(from, safeOffset + index), safeOffset + index));
+        rows.push(demoPointage(user.id, addDays(from, safeOffset + index), safeOffset + index));
     }
 
     return { rows, total, offset: safeOffset, limit };
 }
 
-export function demoBadgeagesInRange(user: User, from: string, to: string): DemoBadgeage[] {
+export function demoPointagesInRange(user: User, from: string, to: string): DemoPointage[] {
     const total = daySpan(from, to);
-    const rows: DemoBadgeage[] = [];
+    const rows: DemoPointage[] = [];
 
     for (let index = 0; index < total; index++) {
-        rows.push(demoBadgeage(user.id, addDays(from, index), index));
+        rows.push(demoPointage(user.id, addDays(from, index), index));
     }
 
     return rows;
 }
 
-function demoBadgeage(userId: number, day: string, index: number): DemoBadgeage {
+function demoPointage(userId: number, day: string, index: number): DemoPointage {
     const variant = index % 3;
     const startHour = 8 + (index % 2);
     const secondEntryMinute = variant === 0 ? 15 : 30;

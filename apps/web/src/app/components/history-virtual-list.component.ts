@@ -3,7 +3,7 @@ import { CdkVirtualScrollViewport, ScrollingModule } from "@angular/cdk/scrollin
 import { AfterViewInit, Component, computed, inject, input, output, signal, viewChild } from "@angular/core";
 import { debounceTime, filter, map } from "rxjs";
 import { I18nService } from "../core/i18n.service";
-import type { Badgeage } from "../core/models";
+import type { Pointage } from "../core/models";
 
 interface HistoryPageRequest {
     offset: number;
@@ -46,59 +46,59 @@ const PAGE_SIZE = 500;
                             [itemSize]="50"
                         >
                             <div
-                                *cdkVirtualFor="let badgeage of badgeages(); trackBy: trackByIndex"
+                                *cdkVirtualFor="let pointage of pointages(); trackBy: trackByIndex"
                                 class="grid grid-cols-[minmax(160px,1.6fr)_repeat(4,minmax(110px,1fr))_140px] border-t border-slate-100 text-left text-sm"
                             >
-                                @if (badgeage) {
+                                @if (pointage) {
                                 <div
                                     class="whitespace-nowrap px-4 py-3 font-semibold text-slate-800"
-                                    [title]="badgeage.day"
+                                    [title]="pointage.day"
                                 >
                                     {{
-                                        badgeage.day
+                                        pointage.day
                                             | date: "mediumDate" : undefined : i18n.dateLocale()
                                     }}
                                 </div>
                                 <div
                                     class="whitespace-nowrap px-4 py-3 text-slate-600"
-                                    [title]="badgeage.firstEntry ?? undefined"
+                                    [title]="pointage.firstEntry ?? undefined"
                                 >
                                     {{
-                                        badgeage.firstEntry
+                                        pointage.firstEntry
                                             | date: "HH:mm:ss" : undefined : i18n.dateLocale()
                                     }}
                                 </div>
                                 <div
                                     class="whitespace-nowrap px-4 py-3 text-slate-600"
-                                    [title]="badgeage.firstExit ?? undefined"
+                                    [title]="pointage.firstExit ?? undefined"
                                 >
                                     {{
-                                        badgeage.firstExit
+                                        pointage.firstExit
                                             | date: "HH:mm:ss" : undefined : i18n.dateLocale()
                                     }}
                                 </div>
                                 <div
                                     class="whitespace-nowrap px-4 py-3 text-slate-600"
-                                    [title]="badgeage.secondEntry ?? undefined"
+                                    [title]="pointage.secondEntry ?? undefined"
                                 >
                                     {{
-                                        badgeage.secondEntry
+                                        pointage.secondEntry
                                             | date: "HH:mm:ss" : undefined : i18n.dateLocale()
                                     }}
                                 </div>
                                 <div
                                     class="whitespace-nowrap px-4 py-3 text-slate-600"
-                                    [title]="badgeage.secondExit ?? undefined"
+                                    [title]="pointage.secondExit ?? undefined"
                                 >
                                     {{
-                                        badgeage.secondExit
+                                        pointage.secondExit
                                             | date: "HH:mm:ss" : undefined : i18n.dateLocale()
                                     }}
                                 </div>
                                 <div class="whitespace-nowrap px-4 py-3">
                                     <button
                                         class="inline-flex cursor-pointer items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-rose-400 to-rose-500 px-4 py-1 text-center text-xs font-semibold text-white shadow-sm transition hover:from-rose-500 hover:to-rose-600 hover:outline hover:outline-black/20 active:scale-[0.98]"
-                                        (click)="deleteBadgeage.emit(badgeage.id)"
+                                        (click)="deletePointage.emit(pointage.id)"
                                     >
                                         {{ i18n.t("history.delete") }}
                                     </button>
@@ -131,26 +131,39 @@ const PAGE_SIZE = 500;
 })
 export class HistoryVirtualListComponent implements AfterViewInit {
     protected readonly i18n = inject(I18nService);
-    private readonly viewport = viewChild.required(CdkVirtualScrollViewport);
-    readonly badgeages = input.required<Array<Badgeage | null>>();
+    private readonly viewport = viewChild(CdkVirtualScrollViewport);
+    readonly pointages = input.required<Array<Pointage | null>>();
     readonly total = input.required<number>();
-    readonly deleteBadgeage = output<number>();
+    readonly deletePointage = output<number>();
     readonly loadPage = output<HistoryPageRequest>();
     private readonly currentIndex = signal(1);
     readonly positionLabel = computed(() => `${this.currentIndex()}/${this.total()}`);
 
     ngAfterViewInit(): void {
+        const viewport = this.viewport();
+        if (!viewport) {
+            this.updateCurrentIndex();
+            return;
+        }
+
         this.requestPage({ offset: 0, limit: PAGE_SIZE });
         this.updateCurrentIndex();
-        this.viewport()
+
+        viewport
+            .elementScrolled()
+            .pipe(map(() => viewport.getRenderedRange()), filter((range) => range.end > range.start))
+            .subscribe((range) => {
+                this.currentIndex.set(Math.min(this.total(), range.start + 1));
+            });
+
+        viewport
             .elementScrolled()
             .pipe(
                 debounceTime(120),
-                map(() => this.viewport().getRenderedRange()),
+                map(() => viewport.getRenderedRange()),
                 filter((range) => range.end > range.start),
             )
             .subscribe((range) => {
-                this.currentIndex.set(Math.min(this.total(), range.start + 1));
                 const firstPage = Math.max(0, Math.floor(range.start / PAGE_SIZE) - 1);
                 const lastPage = Math.floor(Math.max(0, range.end - 1) / PAGE_SIZE) + 1;
 

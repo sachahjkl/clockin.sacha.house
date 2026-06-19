@@ -57,29 +57,27 @@ import { I18nService } from "../core/i18n.service";
                     </div>
                 }
 
-                <div
-                    class="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-between"
-                >
+                <div class="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <button
                         type="button"
-                        class="inline-flex items-center justify-center rounded-xl px-4 py-2 font-medium text-slate-600 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-40"
+                        class="inline-flex w-full items-center justify-center rounded-xl px-4 py-2 font-medium text-slate-600 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-40 sm:w-auto"
                         [disabled]="step() === 0"
                         (click)="previous()"
                     >
                         {{ i18n.t("wizard.previous") }}
                     </button>
 
-                    <div class="flex gap-2 self-end sm:self-auto">
+                    <div class="flex flex-col gap-2 sm:flex-row sm:justify-end">
                         <button
                             type="button"
-                            class="inline-flex items-center justify-center rounded-xl px-4 py-2 font-medium text-slate-600 transition hover:bg-slate-100"
+                            class="inline-flex w-full items-center justify-center rounded-xl px-4 py-2 font-medium text-slate-600 transition hover:bg-slate-100 sm:w-auto"
                             (click)="close.emit()"
                         >
                             {{ i18n.t("wizard.close") }}
                         </button>
                         <button
                             type="button"
-                            class="inline-flex items-center justify-center rounded-xl bg-sky-600 px-4 py-2 font-semibold text-white transition hover:bg-sky-700"
+                            class="inline-flex w-full items-center justify-center rounded-xl bg-sky-600 px-4 py-2 font-semibold text-white transition hover:bg-sky-700 sm:w-auto"
                             (click)="next()"
                         >
                             {{

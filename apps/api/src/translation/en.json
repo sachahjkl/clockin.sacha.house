@@ -1,6 +1,6 @@
 {
     "export": {
-        "badgeages": {
+        "pointages": {
             "headers": {
                 "day": "Day",
                 "firstEntry": "Entry 1",

@@ -1,5 +1,5 @@
 import type { FastifyReply } from "fastify";
-import { demoBadgeagesInRange, isDemoUser } from "../demo.js";
+import { demoPointagesInRange, isDemoUser } from "../demo.js";
 import type { User } from "../db/schema.js";
 
 export function sendDemoClockinPageDataIfNeeded(
@@ -19,7 +19,7 @@ export function sendDemoClockinPageDataIfNeeded(
             email: user.email,
             createdAt: user.createdAt,
         },
-        badgeages: demoBadgeagesInRange(user, from, to),
+        pointages: demoPointagesInRange(user, from, to),
     });
     return true;
 }

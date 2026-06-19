@@ -3,10 +3,13 @@ import { CanActivateFn, Router, RouterLink, Routes } from "@angular/router";
 import { AccountService } from "./core/account.service";
 import {
     resolveHomeData,
-    resolveHistoryBadgeages,
+    resolveHistoryPointages,
     resolveProfile,
 } from "./core/resolver";
 import { I18nService } from "./core/i18n.service";
+import type { SeoRouteData } from "./core/seo.service";
+
+const PRIVATE_PAGE_ROBOTS: SeoRouteData["robots"] = "noindex,nofollow";
 
 @Component({
     selector: "app-not-found",
@@ -51,20 +54,42 @@ export const routes: Routes = [
         loadComponent: () =>
             import("./pages/connect/connect.component").then((m) => m.ConnectComponent),
         canActivate: [redirectIfAccount],
-        data: { hideNav: true, fullscreen: true },
+        data: {
+            hideNav: true,
+            fullscreen: true,
+            seo: {
+                titleKey: "seo.connect.title",
+                descriptionKey: "seo.connect.description",
+                robots: "index,follow",
+            } satisfies SeoRouteData,
+        },
     },
     {
         path: "clockin",
         loadComponent: () => import("./pages/home/home.component").then((m) => m.HomeComponent),
         canActivate: [requireAccount],
         resolve: { homeData: resolveHomeData },
+        data: {
+            seo: {
+                titleKey: "seo.clockin.title",
+                descriptionKey: "seo.clockin.description",
+                robots: PRIVATE_PAGE_ROBOTS,
+            } satisfies SeoRouteData,
+        },
     },
     {
         path: "history",
         loadComponent: () =>
             import("./pages/history/history.component").then((m) => m.HistoryComponent),
         canActivate: [requireAccount],
-        resolve: { badgeages: resolveHistoryBadgeages },
+        resolve: { pointages: resolveHistoryPointages },
+        data: {
+            seo: {
+                titleKey: "seo.history.title",
+                descriptionKey: "seo.history.description",
+                robots: PRIVATE_PAGE_ROBOTS,
+            } satisfies SeoRouteData,
+        },
     },
     {
         path: "account",
@@ -72,26 +97,71 @@ export const routes: Routes = [
             import("./pages/account/account.component").then((m) => m.AccountComponent),
         canActivate: [requireAccount],
         resolve: { profile: resolveProfile },
+        data: {
+            seo: {
+                titleKey: "seo.account.title",
+                descriptionKey: "seo.account.description",
+                robots: PRIVATE_PAGE_ROBOTS,
+            } satisfies SeoRouteData,
+        },
     },
     {
         path: "legal",
         loadComponent: () =>
             import("./pages/legal/legal-pages.component").then((m) => m.LegalPageComponent),
+        data: {
+            seo: {
+                titleKey: "seo.legal.title",
+                descriptionKey: "seo.legal.description",
+                robots: "index,follow",
+            } satisfies SeoRouteData,
+        },
     },
     {
         path: "privacy",
         loadComponent: () =>
             import("./pages/legal/legal-pages.component").then((m) => m.PrivacyPageComponent),
+        data: {
+            seo: {
+                titleKey: "seo.privacy.title",
+                descriptionKey: "seo.privacy.description",
+                robots: "index,follow",
+            } satisfies SeoRouteData,
+        },
     },
     {
         path: "cookies",
         loadComponent: () =>
             import("./pages/legal/legal-pages.component").then((m) => m.CookiesPageComponent),
+        data: {
+            seo: {
+                titleKey: "seo.cookies.title",
+                descriptionKey: "seo.cookies.description",
+                robots: "index,follow",
+            } satisfies SeoRouteData,
+        },
     },
     {
         path: "about",
         loadComponent: () =>
             import("./pages/legal/legal-pages.component").then((m) => m.AboutPageComponent),
+        data: {
+            seo: {
+                titleKey: "seo.about.title",
+                descriptionKey: "seo.about.description",
+                robots: "index,follow",
+            } satisfies SeoRouteData,
+        },
     },
-    { path: "**", component: NotFoundComponent },
+    {
+        path: "**",
+        component: NotFoundComponent,
+        data: {
+            seo: {
+                titleKey: "seo.notFound.title",
+                descriptionKey: "seo.notFound.description",
+                robots: "noindex,nofollow",
+            } satisfies SeoRouteData,
+        },
+    },
 ];

@@ -1,0 +1,46 @@
+{
+    "name": "Clock-in",
+    "short_name": "Clock-in",
+    "description": "Clock-in helps you record daily work time, review your history, and export your pointages.",
+    "theme_color": "#0284c7",
+    "background_color": "#f8fafc",
+    "display": "standalone",
+    "orientation": "portrait-primary",
+    "scope": "/",
+    "start_url": "/",
+    "lang": "fr",
+    "icons": [
+        {
+            "src": "assets/pwa-icon.svg",
+            "sizes": "any",
+            "type": "image/svg+xml",
+            "purpose": "any"
+        },
+        {
+            "src": "assets/pwa-maskable.svg",
+            "sizes": "any",
+            "type": "image/svg+xml",
+            "purpose": "maskable"
+        },
+        {
+            "src": "assets/hourglass.png",
+            "sizes": "160x160",
+            "type": "image/png",
+            "purpose": "any"
+        }
+    ],
+    "shortcuts": [
+        {
+            "name": "Pointage",
+            "short_name": "Pointer",
+            "description": "Open the main clock-in screen.",
+            "url": "/clockin"
+        },
+        {
+            "name": "Historique",
+            "short_name": "Historique",
+            "description": "Open pointage history and exports.",
+            "url": "/history"
+        }
+    ]
+}

@@ -5,7 +5,7 @@ export interface User {
     createdAt: string;
 }
 
-export interface Badgeage {
+export interface Pointage {
     id: number;
     day: string;
     firstEntry: string | null;
@@ -17,11 +17,11 @@ export interface Badgeage {
 
 export interface HomeData {
     profile: User;
-    badgeages: Badgeage[];
+    pointages: Pointage[];
 }
 
 export interface HistoryPageData {
-    rows: Badgeage[];
+    rows: Pointage[];
     total: number;
     offset: number;
     limit: number;

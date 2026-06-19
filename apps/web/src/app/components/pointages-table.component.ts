@@ -25,7 +25,7 @@ export class AutoFocusDirective implements AfterViewInit {
 }
 
 @Component({
-    selector: "app-badgeages-table",
+    selector: "app-pointages-table",
     standalone: true,
     imports: [DatePipe, AutoFocusDirective, IconComponent],
     styles: [
@@ -51,7 +51,7 @@ export class AutoFocusDirective implements AfterViewInit {
                     <app-icon name="search" size="1.25rem" class="mr-1" /> {{ i18n.t("table.summary") }}
                 </p>
                 <h2 class="mt-1 text-lg font-bold text-slate-900">
-                    {{ i18n.t("table.weekBadgeages") }}
+                    {{ i18n.t("table.weekPointages") }}
                 </h2>
             </div>
             <div class="overflow-x-auto">
@@ -174,7 +174,7 @@ export class AutoFocusDirective implements AfterViewInit {
         </section>
     `,
 })
-export class BadgeagesTableComponent {
+export class PointagesTableComponent {
     protected readonly i18n = inject(I18nService);
     rows = input.required<TableRow[]>();
     weekTotal = input.required<string>();

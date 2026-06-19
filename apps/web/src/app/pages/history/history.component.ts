@@ -1,9 +1,9 @@
 import { Component, computed, inject, input, linkedSignal, signal } from "@angular/core";
 import { finalize } from "rxjs";
-import { BadgeagesClient } from "../../core/badgeages.client";
+import { PointagesClient } from "../../core/pointages.client";
 import { HistoryVirtualListComponent } from "../../components/history-virtual-list.component";
 import { I18nService, type TranslationKey } from "../../core/i18n.service";
-import type { Badgeage, HistoryPageData } from "../../core/models";
+import type { HistoryPageData, Pointage } from "../../core/models";
 
 interface HistoryPageRequest {
     offset: number;
@@ -121,21 +121,21 @@ const HISTORY_PAGE_SIZE = 500;
             }
 
             <app-history-virtual-list
-                [badgeages]="badgeages()"
+                [pointages]="pointages()"
                 [total]="total()"
-                (deleteBadgeage)="remove($event)"
+                (deletePointage)="remove($event)"
                 (loadPage)="loadPage($event)"
             />
         </article>
     `,
 })
 export class HistoryComponent {
-    private readonly badgeagesClient = inject(BadgeagesClient);
+    private readonly pointagesClient = inject(PointagesClient);
     protected readonly i18n = inject(I18nService);
-    protected readonly resolvedBadgeages = input.required<HistoryPageData>({ alias: "badgeages" });
+    protected readonly resolvedPointages = input.required<HistoryPageData>({ alias: "pointages" });
 
-    readonly total = linkedSignal(() => this.resolvedBadgeages().total);
-    readonly badgeages = linkedSignal(() => toSparseBadgeages(this.resolvedBadgeages()));
+    readonly total = linkedSignal(() => this.resolvedPointages().total);
+    readonly pointages = linkedSignal(() => toSparsePointages(this.resolvedPointages()));
     readonly error = signal<string | null>(null);
     readonly exportPresets = EXPORT_PRESETS;
     readonly exportPreset = signal<ExportPresetId>("lastMonth");
@@ -177,14 +177,14 @@ export class HistoryComponent {
 
     remove(id: number): void {
         this.error.set(null);
-        this.badgeagesClient.delete(id).subscribe({
+        this.pointagesClient.delete(id).subscribe({
             next: () => {
-                const index = this.badgeages().findIndex((item) => item?.id === id);
+                const index = this.pointages().findIndex((item) => item?.id === id);
                 if (index === -1) {
                     return;
                 }
 
-                this.badgeages.update((items) => {
+                this.pointages.update((items) => {
                     const copy = [...items];
                     copy.splice(index, 1);
                     return copy;
@@ -206,17 +206,17 @@ export class HistoryComponent {
         const offset = Math.max(0, Math.floor(request.offset / HISTORY_PAGE_SIZE) * HISTORY_PAGE_SIZE);
         const limit = HISTORY_PAGE_SIZE;
         const key = pageKey(offset, limit);
-        if (this.loadedPages.has(key) || this.pendingPages.has(key) || pageLoaded(this.badgeages(), offset, limit)) {
+        if (this.loadedPages.has(key) || this.pendingPages.has(key) || pageLoaded(this.pointages(), offset, limit)) {
             return;
         }
 
         this.pendingPages.add(key);
-        this.badgeagesClient.loadHistoryPage(offset, limit).subscribe({
+        this.pointagesClient.loadHistoryPage(offset, limit).subscribe({
             next: (page) => {
                 this.pendingPages.delete(key);
                 this.loadedPages.add(key);
                 this.total.set(page.total);
-                this.badgeages.update((items) => mergePage(items, page));
+                this.pointages.update((items) => mergePage(items, page));
             },
             error: (error: unknown) => {
                 this.pendingPages.delete(key);
@@ -232,7 +232,7 @@ export class HistoryComponent {
         this.exportError.set(null);
 
         const range = this.exportRange();
-        this.badgeagesClient
+        this.pointagesClient
             .export(range.from, range.to, format, this.exportIso())
             .pipe(finalize(() => this.exportPending.set(false)))
             .subscribe({
@@ -304,15 +304,15 @@ function errorMessage(error: unknown, i18n: I18nService): string {
     return error instanceof Error ? error.message : i18n.t("errors.requestFailed");
 }
 
-function toSparseBadgeages(page: HistoryPageData): Array<Badgeage | null> {
-    const items = Array.from<Badgeage | null>({ length: page.total }).fill(null);
+function toSparsePointages(page: HistoryPageData): Array<Pointage | null> {
+    const items = Array.from<Pointage | null>({ length: page.total }).fill(null);
     for (let index = 0; index < page.rows.length; index++) {
         items[page.offset + index] = page.rows[index] ?? null;
     }
     return items;
 }
 
-function mergePage(items: Array<Badgeage | null>, page: HistoryPageData): Array<Badgeage | null> {
+function mergePage(items: Array<Pointage | null>, page: HistoryPageData): Array<Pointage | null> {
     const next = ensureLength(items, page.total);
     for (let index = 0; index < page.rows.length; index++) {
         next[page.offset + index] = page.rows[index] ?? null;
@@ -320,19 +320,19 @@ function mergePage(items: Array<Badgeage | null>, page: HistoryPageData): Array<
     return next;
 }
 
-function ensureLength(items: Array<Badgeage | null>, total: number): Array<Badgeage | null> {
+function ensureLength(items: Array<Pointage | null>, total: number): Array<Pointage | null> {
     if (items.length === total) {
         return [...items];
     }
 
-    const next = Array.from<Badgeage | null>({ length: total }).fill(null);
+    const next = Array.from<Pointage | null>({ length: total }).fill(null);
     for (let index = 0; index < Math.min(items.length, total); index++) {
         next[index] = items[index] ?? null;
     }
     return next;
 }
 
-function pageLoaded(items: Array<Badgeage | null>, offset: number, limit: number): boolean {
+function pageLoaded(items: Array<Pointage | null>, offset: number, limit: number): boolean {
     const end = Math.min(items.length, offset + limit);
     if (offset >= end) {
         return true;

@@ -15,6 +15,13 @@
       "when": 1781776592935,
       "tag": "0001_messy_vulture",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1782500000000,
+      "tag": "0002_quiet_pointages",
+      "breakpoints": true
     }
   ]
 }
