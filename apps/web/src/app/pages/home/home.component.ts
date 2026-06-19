@@ -33,7 +33,7 @@ import { ToastService } from "../../core/toast.service";
                 }
             </section>
 
-            <section class="flex items-center justify-center py-8">
+            <section class="flex items-center justify-center py-6">
                 <app-pointage-button [disabled]="pointageLocked()" (point)="pointer()" />
             </section>
 
