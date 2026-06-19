@@ -29,7 +29,7 @@ interface VerifyState {
     imports: [FormField, IconComponent],
     styles: [],
     template: `
-        <article class="min-h-[calc(100vh-96px)] px-4 py-8 sm:px-6 sm:py-10">
+        <article class="px-4 py-8 sm:px-6 sm:py-10">
             <div class="mx-auto max-w-6xl">
                 <section class="relative overflow-hidden px-2 py-4 sm:px-4 sm:py-6 lg:px-6 lg:py-8">
                     <div class="mx-auto max-w-3xl space-y-6">
