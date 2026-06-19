@@ -37,7 +37,7 @@ interface VerifyState {
                             <span class="inline-block w-[9ch] bg-gradient-to-tr from-blue-400 to-blue-600 bg-clip-text font-extrabold text-transparent transition hover:from-green-400 hover:to-green-500">Clock-in</span>
                         </h1>
                         <p class="-mt-2 text-center text-base font-medium italic text-slate-600 sm:text-lg">
-                            Votre badgeuse, rien de plus
+                            {{ i18n.t("connect.tagline") }}
                         </p>
 
                         <div class="">
