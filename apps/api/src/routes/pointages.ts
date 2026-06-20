@@ -1,11 +1,11 @@
-import { and, asc, between, count, eq } from "drizzle-orm";
+import { and, asc, between, count, eq, gte, lt } from "drizzle-orm";
 import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import * as XLSX from "xlsx";
 import { z } from "zod";
 import { requireUser } from "../auth.js";
 import { db } from "../db/index.js";
 import { pointages, type Pointage, type Slot } from "../db/schema.js";
-import { historyDefaultRange } from "../demo.js";
+import { demoPointagesInRange, historyDefaultRange, isDemoUser } from "../demo.js";
 import { localeFor, translate, translateRequest, type Language } from "../translation/index.js";
 import {
     demoExportRows,
@@ -24,6 +24,11 @@ const exportIsoSchema = z.preprocess(
     (value) => (value === undefined ? "false" : value),
     z.enum(["true", "false"]).transform((value) => value === "true"),
 );
+
+interface StatsPeriod {
+    from: string;
+    to: string;
+}
 
 function toISODate(date: Date) {
     return date.toISOString().split("T")[0];
@@ -199,6 +204,88 @@ const pointagesRoutes: FastifyPluginAsyncZod = async (fastify) => {
 
     fastify.route({
         method: "GET",
+        url: "/pointages/stats",
+        handler: async (request, reply) => {
+            const user = requireUser(request);
+            const periods = statsPeriods(new Date());
+
+            const records = isDemoUser(user)
+                ? demoPointagesInRange(user, periods.year.from, periods.year.to)
+                : await db
+                      .select()
+                      .from(pointages)
+                      .where(
+                          and(
+                              eq(pointages.userId, user.id),
+                              between(pointages.day, periods.year.from, periods.year.to),
+                          ),
+                      )
+                      .all();
+
+            return reply.send({
+                week: summarizePeriod(records, periods.week),
+                month: summarizePeriod(records, periods.month),
+                year: summarizePeriod(records, periods.year),
+            });
+        },
+    });
+
+    fastify.route({
+        method: "GET",
+        url: "/pointages/index",
+        schema: {
+            querystring: z.object({
+                day: daySchema,
+            }),
+        },
+        handler: async (request, reply) => {
+            const user = requireUser(request);
+            const { day } = request.query;
+
+            if (isDemoUser(user)) {
+                const defaults = historyDefaultRange();
+                const firstDay = defaults.from;
+                const lastDay = defaults.to;
+                const clampedDay = day < firstDay ? firstDay : day > lastDay ? lastDay : day;
+
+                return reply.send({
+                    index: dayDiff(firstDay, clampedDay),
+                    day: clampedDay,
+                    exact: day >= firstDay && day <= lastDay,
+                });
+            }
+
+            const [nextRecord, beforeCount, totalResult] = await Promise.all([
+                db
+                    .select({ day: pointages.day })
+                    .from(pointages)
+                    .where(and(eq(pointages.userId, user.id), gte(pointages.day, day)))
+                    .orderBy(asc(pointages.day))
+                    .limit(1)
+                    .get(),
+                db
+                    .select({ value: count() })
+                    .from(pointages)
+                    .where(and(eq(pointages.userId, user.id), lt(pointages.day, day)))
+                    .get(),
+                db.select({ value: count() }).from(pointages).where(eq(pointages.userId, user.id)).get(),
+            ]);
+
+            const total = totalResult?.value ?? 0;
+            const index = nextRecord
+                ? Math.max(0, (beforeCount?.value ?? 0))
+                : Math.max(0, total - 1);
+
+            return reply.send({
+                index,
+                day: nextRecord?.day ?? null,
+                exact: nextRecord?.day === day,
+            });
+        },
+    });
+
+    fastify.route({
+        method: "GET",
         url: "/pointages",
         schema: {
             querystring: z.object({
@@ -287,6 +374,56 @@ const pointagesRoutes: FastifyPluginAsyncZod = async (fastify) => {
 
     fastify.route({
         method: "PATCH",
+        url: "/pointages/by-day/:day",
+        schema: {
+            params: z.object({ day: daySchema }),
+            body: z.object({
+                slot: slotSchema,
+                timestamp: timestampSchema,
+            }),
+        },
+        handler: async (request, reply) => {
+            const user = requireUser(request);
+            if (sendDemoReadOnlyIfNeeded(request, reply, user)) {
+                return;
+            }
+
+            const value = parseTimestamp(request.body.timestamp);
+            const day = request.params.day;
+
+            const existing = await db
+                .select()
+                .from(pointages)
+                .where(and(eq(pointages.userId, user.id), eq(pointages.day, day)))
+                .get();
+
+            if (!existing) {
+                const created = await db
+                    .insert(pointages)
+                    .values({
+                        day,
+                        userId: user.id,
+                        [request.body.slot]: value,
+                    })
+                    .returning()
+                    .get();
+
+                return reply.status(201).send(created);
+            }
+
+            const updated = await db
+                .update(pointages)
+                .set({ [request.body.slot]: value })
+                .where(and(eq(pointages.userId, user.id), eq(pointages.id, existing.id)))
+                .returning()
+                .get();
+
+            return reply.send(updated);
+        },
+    });
+
+    fastify.route({
+        method: "PATCH",
         url: "/pointages/:id",
         schema: {
             params: z.object({ id: z.coerce.number().int().positive() }),
@@ -360,3 +497,60 @@ const pointagesRoutes: FastifyPluginAsyncZod = async (fastify) => {
 };
 
 export default pointagesRoutes;
+
+function dayDiff(from: string, to: string): number {
+    const start = new Date(`${from}T00:00:00.000Z`).getTime();
+    const end = new Date(`${to}T00:00:00.000Z`).getTime();
+    return Math.max(0, Math.floor((end - start) / 86400000));
+}
+
+function summarizePeriod(records: Array<Pick<Pointage, "day" | Slot>>, period: StatsPeriod) {
+    let totalSeconds = 0;
+    let workedDays = 0;
+
+    for (const record of records) {
+        if (record.day < period.from || record.day > period.to) {
+            continue;
+        }
+
+        const seconds = computeTotalSeconds(record as Pointage);
+        totalSeconds += seconds;
+        if (seconds > 0) {
+            workedDays += 1;
+        }
+    }
+
+    return {
+        totalSeconds,
+        averageWorkedDaySeconds: workedDays > 0 ? Math.floor(totalSeconds / workedDays) : 0,
+        workedDays,
+    };
+}
+
+function statsPeriods(now: Date): Record<"week" | "month" | "year", StatsPeriod> {
+    const today = toISODate(now);
+
+    const weekStart = startOfWorkWeek(now);
+    const monthStart = new Date(now);
+    monthStart.setDate(1);
+    monthStart.setHours(0, 0, 0, 0);
+
+    const yearStart = new Date(now);
+    yearStart.setMonth(0, 1);
+    yearStart.setHours(0, 0, 0, 0);
+
+    return {
+        week: { from: toISODate(weekStart), to: today },
+        month: { from: toISODate(monthStart), to: today },
+        year: { from: toISODate(yearStart), to: today },
+    };
+}
+
+function startOfWorkWeek(date: Date): Date {
+    const start = new Date(date);
+    const day = start.getDay();
+    const diff = start.getDate() - day + (day === 0 ? -6 : 1);
+    start.setDate(diff);
+    start.setHours(0, 0, 0, 0);
+    return start;
+}

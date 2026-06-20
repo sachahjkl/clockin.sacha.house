@@ -5,6 +5,7 @@ import rateLimit from "@fastify/rate-limit";
 import staticPlugin from "@fastify/static";
 import { serializerCompiler, validatorCompiler } from "fastify-type-provider-zod";
 import type { IncomingMessage, ServerResponse } from "node:http";
+import { existsSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { migrate } from "drizzle-orm/libsql/migrator";
@@ -40,6 +41,10 @@ type NodeRequestHandler = (
 ) => Promise<void> | void;
 
 async function loadSsrHandler(): Promise<NodeRequestHandler | null> {
+    if (!existsSync(ssrEntryPath)) {
+        return null;
+    }
+
     try {
         const module = (await import(ssrEntryPath)) as {
             reqHandler?: NodeRequestHandler;

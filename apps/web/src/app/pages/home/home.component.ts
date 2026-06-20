@@ -1,5 +1,6 @@
 type TodayStatus = "noRecord" | "firstEntryIn" | "firstExitOut" | "secondEntryIn" | "allFilled";
 
+import { ActivatedRoute, Router } from "@angular/router";
 import { Component, computed, inject, input, linkedSignal } from "@angular/core";
 import { AccountService } from "../../core/account.service";
 import { PointagesClient } from "../../core/pointages.client";
@@ -17,14 +18,10 @@ import { ToastService } from "../../core/toast.service";
 @Component({
     selector: "app-home",
     standalone: true,
-    imports: [
-        PointageButtonComponent,
-        PointagesTableComponent,
-        CopyableIdComponent,
-    ],
+    imports: [PointageButtonComponent, PointagesTableComponent, CopyableIdComponent],
     template: `
-        <article class="mx-auto w-full min-w-0 max-w-[80rem] space-y-6">
-            <section class="flex items-center justify-between flex-wrap gap-3 px-2">
+        <article class="mx-auto my-3 w-full min-w-0 max-w-[80rem] space-y-6">
+            <section class="flex flex-wrap items-center justify-between gap-3">
                 <div>
                     <h1 class="text-2xl font-bold">{{ greetingText() }}</h1>
                 </div>
@@ -41,8 +38,15 @@ import { ToastService } from "../../core/toast.service";
                 <app-pointages-table
                     [rows]="rows()"
                     [weekTotal]="weekTotal()"
+                    [from]="homeData().from"
+                    [to]="homeData().to"
+                    [weekOffset]="weekOffset()"
                     (edit)="onEdit($event)"
                     (deleteSlot)="clearSlot($event)"
+                    (goToDate)="goToDate($event)"
+                    (previousWeek)="goToWeek(weekOffset() - 1)"
+                    (nextWeek)="goToWeek(weekOffset() + 1)"
+                    (currentWeek)="goToWeek(0)"
                 />
             </section>
         </article>
@@ -51,9 +55,17 @@ import { ToastService } from "../../core/toast.service";
 export class HomeComponent {
     private readonly pointagesClient = inject(PointagesClient);
     private readonly toastService = inject(ToastService);
+    private readonly router = inject(Router);
+    private readonly route = inject(ActivatedRoute);
     protected readonly account = inject(AccountService);
     protected readonly i18n = inject(I18nService);
     protected readonly homeData = input.required<HomeData>();
+    readonly weekOffset = input(0, {
+        transform: (value: number | string | undefined) => {
+            const parsed = Number(value ?? 0);
+            return Number.isFinite(parsed) ? parsed : 0;
+        },
+    });
 
     readonly userId = computed(() => this.account.userId());
     readonly pointages = linkedSignal(() => this.homeData().pointages);
@@ -82,7 +94,7 @@ export class HomeComponent {
         const name = this.profileName();
         return name ? `${base}, ${name} !` : `${base} !`;
     });
-    readonly rows = computed(() => buildWeekRows(this.pointages()));
+    readonly rows = computed(() => buildWeekRows(this.pointages(), this.homeData().from));
     readonly weekTotal = computed(() =>
         formatDuration(
             this.pointages().reduce((total, pointage) => total + computeTotalSeconds(pointage), 0),
@@ -103,10 +115,13 @@ export class HomeComponent {
 
     onEdit(event: { slot: SlotKey; day: string; value: string }): void {
         const record = this.pointages().find((pointage) => pointage.day === event.day);
-        if (!record) return;
-
         const timestamp = new Date(`${event.day}T${normalizeTimeValue(event.value)}`).toISOString();
-        this.pointagesClient.updateSlot(record.id, event.slot, timestamp).subscribe({
+
+        const request = record
+            ? this.pointagesClient.updateSlot(record.id, event.slot, timestamp)
+            : this.pointagesClient.upsertSlotForDay(event.day, event.slot, timestamp);
+
+        request.subscribe({
             next: (updated) => {
                 this.upsertPointage(updated);
                 this.toastService.success(this.i18n.t("toast.pointageUpdated"));
@@ -132,6 +147,26 @@ export class HomeComponent {
         });
     }
 
+    goToWeek(weekOffset: number): void {
+        void this.router.navigate([], {
+            relativeTo: this.route,
+            queryParams: weekOffset === 0 ? { weekOffset: null } : { weekOffset },
+            queryParamsHandling: "merge",
+        });
+    }
+
+    goToDate(day: string): void {
+        const target = new Date(`${day}T12:00:00`);
+        if (Number.isNaN(target.getTime())) return;
+
+        const currentWeekStart = startOfWeek(new Date());
+        const targetWeekStart = startOfWeek(target);
+        const diffMs = targetWeekStart.getTime() - currentWeekStart.getTime();
+        const weekOffset = Math.round(diffMs / (7 * 24 * 60 * 60 * 1000));
+
+        this.goToWeek(weekOffset);
+    }
+
     private upsertPointage(updated: Pointage): void {
         this.pointages.update((items) => {
             const idx = items.findIndex((pointage) => pointage.id === updated.id);
@@ -149,9 +184,18 @@ function toISODate(date: Date) {
     return date.toISOString().split("T")[0];
 }
 
-function buildWeekRows(pointages: Pointage[]): TableRow[] {
+function startOfWeek(date: Date): Date {
+    const start = new Date(date);
+    const day = start.getDay();
+    const diff = start.getDate() - day + (day === 0 ? -6 : 1);
+    start.setDate(diff);
+    start.setHours(0, 0, 0, 0);
+    return start;
+}
+
+function buildWeekRows(pointages: Pointage[], from: string): TableRow[] {
     const rows: TableRow[] = [];
-    const start = startOfWorkWeek();
+    const start = new Date(`${from}T12:00:00`);
     start.setHours(0, 0, 0, 0);
 
     for (let i = 0; i < 7; i++) {
@@ -170,14 +214,6 @@ function buildWeekRows(pointages: Pointage[]): TableRow[] {
         });
     }
     return rows;
-}
-
-function startOfWorkWeek() {
-    const start = new Date();
-    const day = start.getDay();
-    const diff = start.getDate() - day + (day === 0 ? -6 : 1);
-    start.setDate(diff);
-    return start;
 }
 
 function computeTotalSeconds(pointage: Pointage): number {

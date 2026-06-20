@@ -1,9 +1,14 @@
 import { Component, computed, inject, input, linkedSignal, signal } from "@angular/core";
 import { finalize } from "rxjs";
+import {
+    HistoryExportPanelComponent,
+    type HistoryExportPresetOption,
+} from "../../components/history-export-panel.component";
 import { PointagesClient } from "../../core/pointages.client";
 import { HistoryVirtualListComponent } from "../../components/history-virtual-list.component";
+import { HistoryStatsComponent } from "../../components/history-stats.component";
 import { I18nService, type TranslationKey } from "../../core/i18n.service";
-import type { HistoryPageData, Pointage } from "../../core/models";
+import type { HistoryPageData, HistoryStats, Pointage } from "../../core/models";
 
 interface HistoryPageRequest {
     offset: number;
@@ -15,102 +20,28 @@ const HISTORY_PAGE_SIZE = 500;
 @Component({
     selector: "app-history",
     standalone: true,
-    imports: [HistoryVirtualListComponent],
+    imports: [HistoryExportPanelComponent, HistoryVirtualListComponent, HistoryStatsComponent],
     template: `
-        <article class="mx-auto w-full space-y-4">
-            <h1 class="text-2xl font-bold">{{ i18n.t("app.history") }}</h1>
+        <article class="mx-auto my-3 w-full space-y-6">
+            <div class="space-y-2">
+                <h1 class="text-2xl font-bold">{{ i18n.t("app.history") }}</h1>
+            </div>
 
-            <section class="rounded-xl bg-slate-50 p-4 shadow-sm ring-1 ring-black/5">
-                <div class="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-                    <div class="space-y-1">
-                        <p class="text-sm font-semibold text-slate-800">
-                            {{ i18n.t("history.exportTitle") }}
-                        </p>
-                        <p class="text-sm text-slate-500">{{ i18n.t("history.exportHelp") }}</p>
-                    </div>
-
-                    <div class="grid gap-3 sm:grid-cols-3 lg:min-w-[42rem]">
-                        <label class="block text-sm font-medium text-slate-700">
-                            {{ i18n.t("history.period") }}
-                            <select
-                                class="mt-1 block w-full rounded-xl border border-transparent bg-white px-3 py-2.5 text-slate-900 outline-none transition focus:border-slate-300 focus:bg-white focus:ring-0"
-                                [value]="exportPreset()"
-                                (change)="onPresetChange($any($event.target).value)"
-                            >
-                                @for (preset of exportPresets; track preset.id) {
-                                    <option [value]="preset.id">
-                                        {{ i18n.t(preset.labelKey) }}
-                                    </option>
-                                }
-                            </select>
-                        </label>
-
-                        <label class="block text-sm font-medium text-slate-700">
-                            {{ i18n.t("history.from") }}
-                            <input
-                                type="date"
-                                class="mt-1 block w-full rounded-xl border border-transparent bg-white px-3 py-2.5 text-slate-900 outline-none transition focus:border-slate-300 focus:bg-white focus:ring-0"
-                                [value]="exportRange().from"
-                                (input)="onFromChange($any($event.target).value)"
-                            />
-                        </label>
-
-                        <label class="block text-sm font-medium text-slate-700">
-                            {{ i18n.t("history.to") }}
-                            <input
-                                type="date"
-                                class="mt-1 block w-full rounded-xl border border-transparent bg-white px-3 py-2.5 text-slate-900 outline-none transition focus:border-slate-300 focus:bg-white focus:ring-0"
-                                [value]="exportRange().to"
-                                (input)="onToChange($any($event.target).value)"
-                            />
-                        </label>
-                    </div>
-                </div>
-
-                <div class="mt-4 flex flex-wrap items-center gap-6 gap-y-4">
-                    <section class="flex flex-wrap gap-4">
-                        <button
-                            type="button"
-                            class="inline-flex cursor-pointer items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-400 to-emerald-500 px-4 py-2 text-center font-semibold text-white shadow-sm transition hover:from-emerald-500 hover:to-emerald-600 hover:outline hover:outline-black/20 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
-                            [disabled]="exportPending() || exportRangeInvalid()"
-                            (click)="exportCsv()"
-                        >
-                            {{ i18n.t("history.exportCsv") }}
-                        </button>
-                        <button
-                            type="button"
-                            class="inline-flex cursor-pointer items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-blue-400 to-blue-500 px-4 py-2 text-center font-semibold text-white shadow-sm transition hover:from-blue-500 hover:to-blue-600 hover:outline hover:outline-black/20 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
-                            [disabled]="exportPending() || exportRangeInvalid()"
-                            (click)="exportXlsx()"
-                        >
-                            {{ i18n.t("history.exportXlsx") }}
-                        </button>
-                    </section>
-                    <label class="inline-flex cursor-pointer items-center gap-2 text-sm text-slate-600">
-                        <input
-                            type="checkbox"
-                            class="h-5 w-5 cursor-pointer rounded border-slate-400 accent-sky-600"
-                            [checked]="exportIso()"
-                            (change)="exportIso.set(($any($event.target).checked))"
-                        />
-                        {{ i18n.t("history.exportIso") }}
-                    </label>
-
-                    @if (exportPending()) {
-                        <span class="text-sm text-slate-500">{{
-                            i18n.t("history.exportPending")
-                        }}</span>
-                    }
-                </div>
-
-                @if (exportRangeInvalid()) {
-                    <p class="mt-3 text-sm text-rose-600">{{ i18n.t("history.invalidRange") }}</p>
-                }
-
-                @if (exportError()) {
-                    <p class="mt-3 text-sm text-rose-600">{{ exportError() }}</p>
-                }
-            </section>
+            <app-history-export-panel
+                [presets]="exportPresets"
+                [preset]="exportPreset()"
+                [range]="exportRange()"
+                [pending]="exportPending()"
+                [invalid]="exportRangeInvalid()"
+                [iso]="exportIso()"
+                [error]="exportError()"
+                (presetChange)="onPresetChange($event)"
+                (fromChange)="onFromChange($event)"
+                (toChange)="onToChange($event)"
+                (isoChange)="exportIso.set($event)"
+                (exportCsv)="exportCsv()"
+                (exportXlsx)="exportXlsx()"
+            />
 
             @if (error()) {
                 <div
@@ -123,9 +54,13 @@ const HISTORY_PAGE_SIZE = 500;
             <app-history-virtual-list
                 [pointages]="pointages()"
                 [total]="total()"
+                [targetIndex]="targetHistoryIndex()"
                 (deletePointage)="remove($event)"
+                (goToDate)="goToDate($event)"
                 (loadPage)="loadPage($event)"
             />
+
+            <app-history-stats [stats]="stats()" [error]="statsError()" />
         </article>
     `,
 })
@@ -137,17 +72,28 @@ export class HistoryComponent {
     readonly total = linkedSignal(() => this.resolvedPointages().total);
     readonly pointages = linkedSignal(() => toSparsePointages(this.resolvedPointages()));
     readonly error = signal<string | null>(null);
-    readonly exportPresets = EXPORT_PRESETS;
+    readonly exportPresets: HistoryExportPresetOption[] = EXPORT_PRESETS;
     readonly exportPreset = signal<ExportPresetId>("lastMonth");
     readonly exportRange = signal(getRangeForPreset("lastMonth"));
     readonly exportPending = signal(false);
     readonly exportError = signal<string | null>(null);
     readonly exportIso = signal(false);
+    readonly targetHistoryIndex = signal<number | null>(null);
+    readonly stats = signal<HistoryStats | null>(null);
+    readonly statsError = signal<string | null>(null);
     readonly exportRangeInvalid = computed(() => this.exportRange().from > this.exportRange().to);
     private readonly loadedPages = new Set<string>([pageKey(0, HISTORY_PAGE_SIZE)]);
     private readonly pendingPages = new Set<string>();
 
-    onPresetChange(value: ExportPresetId): void {
+    constructor() {
+        this.loadStats();
+    }
+
+    onPresetChange(value: string): void {
+        if (!isExportPresetId(value)) {
+            return;
+        }
+
         this.exportPreset.set(value);
         this.exportError.set(null);
         if (value !== "custom") {
@@ -195,6 +141,7 @@ export class HistoryComponent {
                 invalidatePagesFrom(this.loadedPages, affectedOffset);
                 invalidatePagesFrom(this.pendingPages, affectedOffset);
                 this.loadPage({ offset: affectedOffset, limit: HISTORY_PAGE_SIZE });
+                this.loadStats();
             },
             error: (error: unknown) => {
                 this.error.set(errorMessage(error, this.i18n));
@@ -221,6 +168,33 @@ export class HistoryComponent {
             error: (error: unknown) => {
                 this.pendingPages.delete(key);
                 this.error.set(errorMessage(error, this.i18n));
+            },
+        });
+    }
+
+    goToDate(day: string): void {
+        this.error.set(null);
+        this.pointagesClient.locateHistoryIndex(day).subscribe({
+            next: ({ index }) => {
+                const offset = Math.floor(index / HISTORY_PAGE_SIZE) * HISTORY_PAGE_SIZE;
+                this.targetHistoryIndex.set(null);
+                this.loadPage({ offset, limit: HISTORY_PAGE_SIZE });
+                queueMicrotask(() => this.targetHistoryIndex.set(index));
+            },
+            error: (error: unknown) => {
+                this.error.set(errorMessage(error, this.i18n));
+            },
+        });
+    }
+
+    private loadStats(): void {
+        this.statsError.set(null);
+        this.pointagesClient.loadHistoryStats().subscribe({
+            next: (stats) => {
+                this.stats.set(stats);
+            },
+            error: (error: unknown) => {
+                this.statsError.set(errorMessage(error, this.i18n));
             },
         });
     }
@@ -256,6 +230,10 @@ const EXPORT_PRESETS: Array<{ id: ExportPresetId; labelKey: TranslationKey }> = 
     { id: "all", labelKey: "preset.all" },
     { id: "custom", labelKey: "preset.custom" },
 ];
+
+function isExportPresetId(value: string): value is ExportPresetId {
+    return EXPORT_PRESETS.some((preset) => preset.id === value);
+}
 
 function getRangeForPreset(preset: Exclude<ExportPresetId, "custom">): {
     from: string;

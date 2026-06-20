@@ -13,6 +13,8 @@ export function sendDemoClockinPageDataIfNeeded(
     }
 
     void reply.send({
+        from,
+        to,
         profile: {
             userId: user.userId,
             name: user.name,

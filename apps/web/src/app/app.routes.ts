@@ -69,6 +69,7 @@ export const routes: Routes = [
         loadComponent: () => import("./pages/home/home.component").then((m) => m.HomeComponent),
         canActivate: [requireAccount],
         resolve: { homeData: resolveHomeData },
+        runGuardsAndResolvers: "paramsOrQueryParamsChange",
         data: {
             seo: {
                 titleKey: "seo.clockin.title",

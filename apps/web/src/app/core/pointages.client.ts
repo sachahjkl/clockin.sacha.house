@@ -2,7 +2,7 @@ import { HttpClient, HttpParams } from "@angular/common/http";
 import { Injectable, inject } from "@angular/core";
 import type { Observable } from "rxjs";
 import { I18nService } from "./i18n.service";
-import type { HistoryPageData, Pointage, Slot } from "./models";
+import type { HistoryIndexLookup, HistoryPageData, HistoryStats, Pointage, Slot } from "./models";
 
 @Injectable({ providedIn: "root" })
 export class PointagesClient {
@@ -22,12 +22,26 @@ export class PointagesClient {
         });
     }
 
+    locateHistoryIndex(day: string): Observable<HistoryIndexLookup> {
+        return this.http.get<HistoryIndexLookup>("/pointages/index", {
+            params: new HttpParams({ fromObject: { day } }),
+        });
+    }
+
+    loadHistoryStats(): Observable<HistoryStats> {
+        return this.http.get<HistoryStats>("/pointages/stats");
+    }
+
     pointer(timestamp: string): Observable<Pointage> {
         return this.http.post<Pointage>("/pointages", { timestamp });
     }
 
     updateSlot(id: number, slot: Slot, timestamp: string | null): Observable<Pointage> {
         return this.http.patch<Pointage>(`/pointages/${id}`, { slot, timestamp });
+    }
+
+    upsertSlotForDay(day: string, slot: Slot, timestamp: string): Observable<Pointage> {
+        return this.http.patch<Pointage>(`/pointages/by-day/${day}`, { slot, timestamp });
     }
 
     delete(id: number): Observable<void> {

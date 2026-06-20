@@ -1,7 +1,8 @@
 import { DatePipe } from "@angular/common";
 import { CdkVirtualScrollViewport, ScrollingModule } from "@angular/cdk/scrolling";
-import { AfterViewInit, Component, computed, inject, input, output, signal, viewChild } from "@angular/core";
+import { AfterViewInit, Component, ElementRef, computed, effect, inject, input, output, signal, viewChild } from "@angular/core";
 import { debounceTime, filter, map } from "rxjs";
+import { IconComponent } from "./icon.component";
 import { I18nService } from "../core/i18n.service";
 import type { Pointage } from "../core/models";
 
@@ -15,9 +16,32 @@ const PAGE_SIZE = 500;
 @Component({
     selector: "app-history-virtual-list",
     standalone: true,
-    imports: [DatePipe, ScrollingModule, CdkVirtualScrollViewport],
+    host: { style: "display: block" },
+    imports: [DatePipe, ScrollingModule, CdkVirtualScrollViewport, IconComponent],
     template: `
-        <div class="overflow-hidden rounded-xl bg-white shadow">
+        <div class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+            <div class="border-b border-slate-200 bg-slate-50 px-4 py-3">
+                <div class="flex flex-wrap items-center justify-between gap-3">
+                    <button
+                        type="button"
+                        class="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50"
+                        [disabled]="!total()"
+                        (click)="openDatePicker()"
+                    >
+                        <app-icon name="calendar" size="1.1rem" />
+                        {{ i18n.t("history.goToDate") }}
+                    </button>
+                    @if (total()) {
+                        <div class="text-xs text-slate-500">{{ positionLabel() }}</div>
+                    }
+                </div>
+                <input
+                    #jumpToDateInput
+                    type="date"
+                    class="pointer-events-none absolute h-px w-px opacity-0"
+                    (change)="onDatePicked($any($event.target).value)"
+                />
+            </div>
             <div class="overflow-x-auto">
                 <div class="min-w-[52rem]">
                     <div
@@ -47,7 +71,7 @@ const PAGE_SIZE = 500;
                         >
                             <div
                                 *cdkVirtualFor="let pointage of pointages(); trackBy: trackByIndex"
-                                class="grid grid-cols-[minmax(160px,1.6fr)_repeat(4,minmax(110px,1fr))_140px] border-t border-slate-100 text-left text-sm"
+                                class="grid grid-cols-[minmax(160px,1.6fr)_repeat(4,minmax(110px,1fr))_140px] border-t border-slate-200 text-left text-sm"
                             >
                                 @if (pointage) {
                                 <div
@@ -119,11 +143,6 @@ const PAGE_SIZE = 500;
                         </div>
                     }
 
-                    @if (total()) {
-                        <div class="border-t border-slate-100 px-4 py-2 text-right text-xs text-slate-500">
-                            {{ positionLabel() }}
-                        </div>
-                    }
                 </div>
             </div>
         </div>
@@ -132,12 +151,30 @@ const PAGE_SIZE = 500;
 export class HistoryVirtualListComponent implements AfterViewInit {
     protected readonly i18n = inject(I18nService);
     private readonly viewport = viewChild(CdkVirtualScrollViewport);
+    private readonly jumpToDateInput = viewChild<ElementRef<HTMLInputElement>>("jumpToDateInput");
     readonly pointages = input.required<Array<Pointage | null>>();
     readonly total = input.required<number>();
+    readonly targetIndex = input<number | null>(null);
     readonly deletePointage = output<number>();
+    readonly goToDate = output<string>();
     readonly loadPage = output<HistoryPageRequest>();
     private readonly currentIndex = signal(1);
     readonly positionLabel = computed(() => `${this.currentIndex()}/${this.total()}`);
+
+    constructor() {
+        effect(() => {
+            const viewport = this.viewport();
+            const index = this.targetIndex();
+            const total = this.total();
+            if (!viewport || index === null || total <= 0) {
+                return;
+            }
+
+            const clamped = Math.max(0, Math.min(index, total - 1));
+            queueMicrotask(() => viewport.scrollToIndex(clamped, "smooth"));
+            this.currentIndex.set(clamped + 1);
+        });
+    }
 
     ngAfterViewInit(): void {
         const viewport = this.viewport();
@@ -175,6 +212,17 @@ export class HistoryVirtualListComponent implements AfterViewInit {
 
     trackByIndex = (index: number): number => index;
 
+    openDatePicker(): void {
+        const input = this.jumpToDateInput()?.nativeElement;
+        if (!input) return;
+        openNativeDatePicker(input);
+    }
+
+    onDatePicked(value: string): void {
+        if (!value) return;
+        this.goToDate.emit(value);
+    }
+
     private requestPage(request: HistoryPageRequest): void {
         this.loadPage.emit(request);
     }
@@ -187,4 +235,13 @@ export class HistoryVirtualListComponent implements AfterViewInit {
 
         this.currentIndex.set(1);
     }
+}
+
+function openNativeDatePicker(input: HTMLInputElement): void {
+    if (typeof input.showPicker === "function") {
+        input.showPicker();
+        return;
+    }
+
+    input.click();
 }
