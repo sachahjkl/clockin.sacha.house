@@ -4,6 +4,7 @@ import { Router } from "@angular/router";
 import { CopyableIdComponent } from "../../components/copyable-id.component";
 import { AccountService } from "../../core/account.service";
 import { I18nService } from "../../core/i18n.service";
+import { ToastService } from "../../core/toast.service";
 import type { User } from "../../core/models";
 import { ProfileClient } from "../../core/profile.client";
 
@@ -17,14 +18,6 @@ import { ProfileClient } from "../../core/profile.client";
                 <h1 class="text-2xl font-bold">{{ i18n.t("app.account") }}</h1>
                 <p class="text-slate-600">{{ i18n.t("account.manageHelp") }}</p>
             </div>
-
-            @if (error()) {
-                <div
-                    class="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-rose-700 shadow-sm"
-                >
-                    {{ error() }}
-                </div>
-            }
 
             <section class="rounded-2xl border border-slate-200 bg-slate-50 p-5 shadow-sm">
                 <h2 class="text-lg font-bold text-slate-900">{{ i18n.t("account.identifier") }}</h2>
@@ -111,11 +104,11 @@ import { ProfileClient } from "../../core/profile.client";
 })
 export class AccountComponent {
     private readonly profileClient = inject(ProfileClient);
+    private readonly toastService = inject(ToastService);
     protected readonly account = inject(AccountService);
     protected readonly i18n = inject(I18nService);
     private readonly router = inject(Router);
     protected readonly resolvedProfile = input.required<User>({ alias: "profile" });
-    protected readonly error = signal<string | null>(null);
     protected readonly success = signal<string | null>(null);
     protected readonly name = linkedSignal(() => this.resolvedProfile().name ?? "");
     protected readonly email = linkedSignal(() => this.resolvedProfile().email ?? "");
@@ -126,7 +119,6 @@ export class AccountComponent {
         event.preventDefault();
 
         this.profilePending.set(true);
-        this.error.set(null);
         this.success.set(null);
         this.profileClient
             .update({ name: this.name(), email: this.email() })
@@ -137,7 +129,7 @@ export class AccountComponent {
                     this.success.set(this.i18n.t("account.profileSaved"));
                 },
                 error: (error: unknown) => {
-                    this.error.set(errorMessage(error, this.i18n));
+                    this.toastService.error(errorMessage(error, this.i18n));
                 },
             });
     }
@@ -146,7 +138,6 @@ export class AccountComponent {
         if (!confirm(this.i18n.t("account.deleteConfirm"))) return;
 
         this.deletePending.set(true);
-        this.error.set(null);
         this.profileClient
             .delete()
             .pipe(finalize(() => this.deletePending.set(false)))
@@ -156,7 +147,7 @@ export class AccountComponent {
                     void this.router.navigate(["/connect"]);
                 },
                 error: (error: unknown) => {
-                    this.error.set(errorMessage(error, this.i18n));
+                    this.toastService.error(errorMessage(error, this.i18n));
                 },
             });
     }

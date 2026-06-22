@@ -25,7 +25,7 @@
 						sqlite
 					];
 
-					npmDepsHash = "sha256-saNJZlEeNZvDJM/a6zJZg/+MYZhrdA9QTBue6+fjXLc=";
+					npmDepsHash = "sha256-/Ipx9vQcfLUjgvjz5TnZn8BJZJbuQoGlXC5AUBXb+z4=";
 
 					preBuild = ''
 						export npm_config_build_from_source=true

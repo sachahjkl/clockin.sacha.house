@@ -8,6 +8,7 @@ import { PointagesClient } from "../../core/pointages.client";
 import { HistoryVirtualListComponent } from "../../components/history-virtual-list.component";
 import { HistoryStatsComponent } from "../../components/history-stats.component";
 import { I18nService, type TranslationKey } from "../../core/i18n.service";
+import { ToastService } from "../../core/toast.service";
 import type { HistoryPageData, HistoryStats, Pointage } from "../../core/models";
 
 interface HistoryPageRequest {
@@ -43,14 +44,6 @@ const HISTORY_PAGE_SIZE = 500;
                 (exportXlsx)="exportXlsx()"
             />
 
-            @if (error()) {
-                <div
-                    class="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-rose-700 shadow-sm"
-                >
-                    {{ error() }}
-                </div>
-            }
-
             <app-history-virtual-list
                 [pointages]="pointages()"
                 [total]="total()"
@@ -66,12 +59,12 @@ const HISTORY_PAGE_SIZE = 500;
 })
 export class HistoryComponent {
     private readonly pointagesClient = inject(PointagesClient);
+    private readonly toastService = inject(ToastService);
     protected readonly i18n = inject(I18nService);
     protected readonly resolvedPointages = input.required<HistoryPageData>({ alias: "pointages" });
 
     readonly total = linkedSignal(() => this.resolvedPointages().total);
     readonly pointages = linkedSignal(() => toSparsePointages(this.resolvedPointages()));
-    readonly error = signal<string | null>(null);
     readonly exportPresets: HistoryExportPresetOption[] = EXPORT_PRESETS;
     readonly exportPreset = signal<ExportPresetId>("lastMonth");
     readonly exportRange = signal(getRangeForPreset("lastMonth"));
@@ -122,7 +115,6 @@ export class HistoryComponent {
     }
 
     remove(id: number): void {
-        this.error.set(null);
         this.pointagesClient.delete(id).subscribe({
             next: () => {
                 const index = this.pointages().findIndex((item) => item?.id === id);
@@ -144,7 +136,7 @@ export class HistoryComponent {
                 this.loadStats();
             },
             error: (error: unknown) => {
-                this.error.set(errorMessage(error, this.i18n));
+                this.toastService.error(errorMessage(error, this.i18n));
             },
         });
     }
@@ -165,15 +157,14 @@ export class HistoryComponent {
                 this.total.set(page.total);
                 this.pointages.update((items) => mergePage(items, page));
             },
-            error: (error: unknown) => {
-                this.pendingPages.delete(key);
-                this.error.set(errorMessage(error, this.i18n));
-            },
+                error: (error: unknown) => {
+                    this.pendingPages.delete(key);
+                    this.toastService.error(errorMessage(error, this.i18n));
+                },
         });
     }
 
     goToDate(day: string): void {
-        this.error.set(null);
         this.pointagesClient.locateHistoryIndex(day).subscribe({
             next: ({ index }) => {
                 const offset = Math.floor(index / HISTORY_PAGE_SIZE) * HISTORY_PAGE_SIZE;
@@ -182,7 +173,7 @@ export class HistoryComponent {
                 queueMicrotask(() => this.targetHistoryIndex.set(index));
             },
             error: (error: unknown) => {
-                this.error.set(errorMessage(error, this.i18n));
+                this.toastService.error(errorMessage(error, this.i18n));
             },
         });
     }
