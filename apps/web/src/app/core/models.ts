@@ -41,10 +41,16 @@ export interface HistoryPeriodStats {
     workedDays: number;
 }
 
+export interface HistoryMonthlyStats {
+    month: string;
+    totalSeconds: number;
+}
+
 export interface HistoryStats {
     week: HistoryPeriodStats;
     month: HistoryPeriodStats;
     year: HistoryPeriodStats;
+    monthly: HistoryMonthlyStats[];
 }
 
 export type Slot = "firstEntry" | "firstExit" | "secondEntry" | "secondExit";

@@ -134,6 +134,10 @@ const translations = {
         "stats.total": "Total",
         "stats.averageWorkedDay": "Moyenne / jour pointé",
         "stats.workedDays": "Jours pointés",
+        "stats.chartTitle": "Heures travaillées par mois",
+        "stats.chartHelp": "Évolution depuis le début de l'année.",
+        "stats.chartPeak": "Pic",
+        "stats.chartAria": "Heures travaillées mensuelles",
         "connect.tagline": "Votre badgeuse, rien de plus",
         "account.help": "Entre avec ton identifiant, ou ouvre un accès de démo en un clic.",
         "account.keepId": "Ton identifiant suffit pour revenir plus tard.",
@@ -307,6 +311,10 @@ const translations = {
         "stats.total": "Total",
         "stats.averageWorkedDay": "Average / worked day",
         "stats.workedDays": "Worked days",
+        "stats.chartTitle": "Hours worked per month",
+        "stats.chartHelp": "Trend since the beginning of the year.",
+        "stats.chartPeak": "Peak",
+        "stats.chartAria": "Monthly hours worked",
         "connect.tagline": "Your time tracker, nothing more",
         "account.help": "Sign in with your identifier, or open the demo access in one click.",
         "account.keepId": "Your identifier is enough to come back later.",
@@ -364,8 +372,7 @@ const translations = {
         "seo.connect.description":
             "Create a Clock-in access or sign back in with your identifier to track time and review history.",
         "seo.clockin.title": "Today's clock-in",
-        "seo.clockin.description":
-            "Quickly record today's entry and exit times with Clock-in.",
+        "seo.clockin.description": "Quickly record today's entry and exit times with Clock-in.",
         "seo.history.title": "Time entry history",
         "seo.history.description":
             "Review your time entry history, adjust times, and export your data as CSV or XLSX.",

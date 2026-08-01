@@ -82,11 +82,16 @@ EOF
 				with lib;
 				let
 					cfg = config.services.clockin;
-					pkg = self.packages.${pkgs.stdenv.hostPlatform.system}.default;
 				in
 				{
 					options.services.clockin = {
 						enable = mkEnableOption "Clock-in web service";
+
+						package = mkOption {
+							type = types.package;
+							default = self.packages.${pkgs.stdenv.hostPlatform.system}.default;
+							description = "Clock-in package to run.";
+						};
 
 						host = mkOption {
 							type = types.str;
@@ -138,7 +143,7 @@ EOF
 								User = "clockin";
 								Group = "clockin";
 								WorkingDirectory = cfg.databaseDir;
-								ExecStart = "${pkg}/bin/clockin";
+								ExecStart = "${cfg.package}/bin/clockin";
 								Restart = "on-failure";
 								RestartSec = 5;
 								NoNewPrivileges = true;

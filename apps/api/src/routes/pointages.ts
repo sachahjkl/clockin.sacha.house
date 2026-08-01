@@ -163,7 +163,11 @@ const pointagesRoutes: FastifyPluginAsyncZod = async (fastify) => {
                     lang,
                     iso,
                     buildRows: (demoUser, exportFrom, exportTo, exportLang) =>
-                        buildExportRows(demoExportRows(demoUser, exportFrom, exportTo), exportLang, iso),
+                        buildExportRows(
+                            demoExportRows(demoUser, exportFrom, exportTo),
+                            exportLang,
+                            iso,
+                        ),
                     headers: exportHeaders,
                     toCsv,
                 })
@@ -226,6 +230,7 @@ const pointagesRoutes: FastifyPluginAsyncZod = async (fastify) => {
                 week: summarizePeriod(records, periods.week),
                 month: summarizePeriod(records, periods.month),
                 year: summarizePeriod(records, periods.year),
+                monthly: summarizeMonths(records, periods.year),
             });
         },
     });
@@ -268,7 +273,11 @@ const pointagesRoutes: FastifyPluginAsyncZod = async (fastify) => {
                     .from(pointages)
                     .where(and(eq(pointages.userId, user.id), lt(pointages.day, day)))
                     .get(),
-                db.select({ value: count() }).from(pointages).where(eq(pointages.userId, user.id)).get(),
+                db
+                    .select({ value: count() })
+                    .from(pointages)
+                    .where(eq(pointages.userId, user.id))
+                    .get(),
             ]);
 
             const total = totalResult?.value ?? 0;
@@ -310,7 +319,14 @@ const pointagesRoutes: FastifyPluginAsyncZod = async (fastify) => {
             const where = and(eq(pointages.userId, user.id), between(pointages.day, from, to));
 
             const [records, totalResult] = await Promise.all([
-                db.select().from(pointages).where(where).orderBy(asc(pointages.day)).limit(limit).offset(offset).all(),
+                db
+                    .select()
+                    .from(pointages)
+                    .where(where)
+                    .orderBy(asc(pointages.day))
+                    .limit(limit)
+                    .offset(offset)
+                    .all(),
                 db.select({ value: count() }).from(pointages).where(where).get(),
             ]);
 
@@ -449,9 +465,7 @@ const pointagesRoutes: FastifyPluginAsyncZod = async (fastify) => {
                     .send({ error: translateRequest(request, "errors.notFound") });
 
             const value =
-                request.body.timestamp !== null
-                    ? parseTimestamp(request.body.timestamp)
-                    : null;
+                request.body.timestamp !== null ? parseTimestamp(request.body.timestamp) : null;
 
             const updated = await db
                 .update(pointages)
@@ -525,6 +539,23 @@ function summarizePeriod(records: Array<Pick<Pointage, "day" | Slot>>, period: S
         averageWorkedDaySeconds: workedDays > 0 ? Math.floor(totalSeconds / workedDays) : 0,
         workedDays,
     };
+}
+
+function summarizeMonths(records: Array<Pick<Pointage, "day" | Slot>>, period: StatsPeriod) {
+    const months: Array<{ month: string; totalSeconds: number }> = [];
+    const lastMonth = Number(period.to.slice(5, 7));
+
+    for (let month = 1; month <= lastMonth; month++) {
+        const key = `${period.to.slice(0, 4)}-${String(month).padStart(2, "0")}`;
+        months.push({
+            month: key,
+            totalSeconds: records
+                .filter((record) => record.day.startsWith(key))
+                .reduce((total, record) => total + computeTotalSeconds(record as Pointage), 0),
+        });
+    }
+
+    return months;
 }
 
 function statsPeriods(now: Date): Record<"week" | "month" | "year", StatsPeriod> {
