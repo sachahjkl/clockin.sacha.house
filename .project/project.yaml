@@ -1,0 +1,8 @@
+name: "clockin.sacha.house"
+description: "https://clockin.sacha.house - Outils de pointage"
+topics: []
+homepage: ""
+source:
+  provider: gitlab
+  namespace: "sachahjkl"
+  path: "sachahjkl/clockin.sacha.house"
