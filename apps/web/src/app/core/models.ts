@@ -43,27 +43,32 @@ export interface HistoryPeriodStats {
     workedDays: number;
 }
 
-export type HistoryChartPeriod = "week" | "month" | "year";
+export type HistoryChartUnit = "day" | "week" | "month" | "year";
+export type HistoryChartWindow = "week" | "month" | "year" | "fiveYears" | "tenYears";
 
 export interface HistoryChartPoint {
-    key: string;
+    from: string;
+    range: HistoryChartUnit;
+    dayCount: number;
     totalSeconds: number;
     targetSeconds: number;
     hot: boolean;
 }
 
 export interface HistoryChart {
-    period: HistoryChartPeriod;
+    unit: HistoryChartUnit;
+    window: HistoryChartWindow;
     anchor: string;
     from: string;
-    to: string;
+    dayCount: number;
     previousAnchor: string;
     nextAnchor: string | null;
     points: HistoryChartPoint[];
 }
 
 export interface HistoryChartRequest {
-    period: HistoryChartPeriod;
+    unit: HistoryChartUnit;
+    window: HistoryChartWindow;
     anchor?: string;
 }
 

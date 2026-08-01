@@ -2,9 +2,10 @@ import { Component, HostListener, inject, input, output, signal } from "@angular
 import { I18nService, type TranslationKey } from "../core/i18n.service";
 import type {
     HistoryChart,
-    HistoryChartPeriod,
     HistoryChartPoint,
     HistoryChartRequest,
+    HistoryChartUnit,
+    HistoryChartWindow,
     HistoryPeriodStats,
     HistoryStats,
 } from "../core/models";
@@ -102,17 +103,17 @@ import { heatColorHsl, heatColorOklch } from "../core/work-target";
                             class="inline-flex self-start rounded-xl bg-slate-100 p-1"
                             [attr.aria-label]="i18n.t('stats.chartPeriod')"
                         >
-                            @for (option of chartPeriods; track option.period) {
+                            @for (option of chartUnits; track option.unit) {
                                 <button
                                     type="button"
                                     class="cursor-pointer rounded-lg px-3 py-1.5 text-sm font-semibold transition disabled:cursor-wait"
-                                    [class.bg-white]="currentStats.chart.period === option.period"
-                                    [class.text-indigo-700]="currentStats.chart.period === option.period"
-                                    [class.shadow-sm]="currentStats.chart.period === option.period"
-                                    [class.text-slate-500]="currentStats.chart.period !== option.period"
+                                    [class.bg-white]="currentStats.chart.unit === option.unit"
+                                    [class.text-indigo-700]="currentStats.chart.unit === option.unit"
+                                    [class.shadow-sm]="currentStats.chart.unit === option.unit"
+                                    [class.text-slate-500]="currentStats.chart.unit !== option.unit"
                                     [disabled]="pending()"
-                                    [attr.aria-pressed]="currentStats.chart.period === option.period"
-                                    (click)="selectPeriod(option.period)"
+                                    [attr.aria-pressed]="currentStats.chart.unit === option.unit"
+                                    (click)="selectUnit(option.unit)"
                                 >
                                     {{ i18n.t(option.labelKey) }}
                                 </button>
@@ -155,39 +156,21 @@ import { heatColorHsl, heatColorOklch } from "../core/work-target";
                         >
                             @for (
                                 item of currentStats.chart.points;
-                                track item.key;
-                                let first = $first;
-                                let last = $last
+                                track item.from
                             ) {
                                 <button
                                     type="button"
                                     class="group relative flex h-full cursor-pointer flex-col justify-end focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400"
-                                    [class]="barWidth(currentStats.chart.period)"
+                                    [class]="barWidth(currentStats.chart.unit)"
                                     [attr.aria-label]="
-                                        fullPointDate(item.key, currentStats.chart.period) +
+                                        fullPointDate(item) +
                                         ', ' +
                                         formatDuration(item.totalSeconds)
                                     "
-                                    (click)="togglePoint($event, item.key)"
+                                    (pointermove)="showPointTooltip($event, item)"
+                                    (pointerleave)="hidePointTooltip()"
+                                    (click)="pinPointTooltip($event, item)"
                                 >
-                                    <span
-                                        class="pointer-events-none invisible absolute top-0 z-20 w-44 rounded-lg bg-slate-900 px-3 py-2 text-center text-xs font-medium normal-case text-white opacity-0 shadow-lg transition group-hover:visible group-hover:opacity-100"
-                                        [class.left-0]="first"
-                                        [class.right-0]="last"
-                                        [class.left-1/2]="!first && !last"
-                                        [class.-translate-x-1/2]="!first && !last"
-                                        [class.!visible]="selectedPointKey() === item.key"
-                                        [class.!opacity-100]="selectedPointKey() === item.key"
-                                    >
-                                        <span class="block font-bold">
-                                            {{ fullPointDate(item.key, currentStats.chart.period) }}
-                                        </span>
-                                        <span class="mt-1 block text-slate-300">
-                                            {{ formatDuration(item.totalSeconds) }} ·
-                                            {{ i18n.t("stats.chartTarget") }}
-                                            {{ formatCompactDuration(item.targetSeconds) }}
-                                        </span>
-                                    </span>
                                     <span
                                         class="mb-2 text-center text-xs font-semibold text-slate-600"
                                     >
@@ -225,13 +208,48 @@ import { heatColorHsl, heatColorOklch } from "../core/work-target";
                                     <span
                                         class="py-2 text-center text-xs font-medium capitalize text-slate-500"
                                     >
-                                        {{ formatPointLabel(item.key, currentStats.chart.period) }}
+                                        {{ formatPointLabel(item.from, item.range) }}
                                     </span>
                                 </button>
                             }
                         </div>
                     </div>
+
+                    <div
+                        class="mt-3 flex flex-wrap justify-center gap-1"
+                        [attr.aria-label]="i18n.t('stats.chartWindow')"
+                    >
+                        @for (option of windowsFor(currentStats.chart.unit); track option.window) {
+                            <button
+                                type="button"
+                                class="cursor-pointer rounded-lg px-3 py-1.5 text-xs font-semibold transition disabled:cursor-wait"
+                                [class.bg-indigo-50]="currentStats.chart.window === option.window"
+                                [class.text-indigo-700]="currentStats.chart.window === option.window"
+                                [class.text-slate-500]="currentStats.chart.window !== option.window"
+                                [disabled]="pending()"
+                                [attr.aria-pressed]="currentStats.chart.window === option.window"
+                                (click)="selectWindow(option.window)"
+                            >
+                                {{ i18n.t(option.labelKey) }}
+                            </button>
+                        }
+                    </div>
                 </div>
+
+                @if (pointTooltip(); as tooltip) {
+                    <div
+                        class="pointer-events-none fixed z-50 w-48 rounded-lg bg-slate-900 px-3 py-2 text-center text-xs font-medium text-white shadow-lg"
+                        [style.left.px]="tooltip.x"
+                        [style.top.px]="tooltip.y"
+                    >
+                        <span class="block font-bold">{{ fullPointDate(tooltip.point) }}</span>
+                        <span class="mt-1 block text-slate-300">
+                            {{ formatDuration(tooltip.point.totalSeconds) }} ·
+                            {{ i18n.t("stats.chartTarget") }}
+                            {{ formatCompactDuration(tooltip.point.targetSeconds) }}
+                        </span>
+                    </div>
+                }
             } @else {
                 <div class="px-4 py-8 text-sm text-slate-400 sm:px-5">
                     {{ i18n.t("history.statsLoading") }}
@@ -246,14 +264,42 @@ export class HistoryStatsComponent {
     error = input<string | null>(null);
     pending = input(false);
     chartChange = output<HistoryChartRequest>();
-    readonly selectedPointKey = signal<string | null>(null);
+    readonly pointTooltip = signal<{
+        point: HistoryChartPoint;
+        x: number;
+        y: number;
+        pinned: boolean;
+    } | null>(null);
     protected readonly heatColorHsl = heatColorHsl;
     protected readonly heatColorOklch = heatColorOklch;
-    readonly chartPeriods: Array<{ period: HistoryChartPeriod; labelKey: TranslationKey }> = [
-        { period: "week", labelKey: "stats.chartWeek" },
-        { period: "month", labelKey: "stats.chartMonth" },
-        { period: "year", labelKey: "stats.chartYear" },
+    readonly chartUnits: Array<{ unit: HistoryChartUnit; labelKey: TranslationKey }> = [
+        { unit: "day", labelKey: "stats.chartDay" },
+        { unit: "week", labelKey: "stats.chartWeek" },
+        { unit: "month", labelKey: "stats.chartMonth" },
+        { unit: "year", labelKey: "stats.chartYear" },
     ];
+    private readonly chartWindows: Record<
+        HistoryChartUnit,
+        Array<{ window: HistoryChartWindow; labelKey: TranslationKey }>
+    > = {
+        day: [
+            { window: "week", labelKey: "stats.chartWeek" },
+            { window: "month", labelKey: "stats.chartMonth" },
+            { window: "year", labelKey: "stats.chartYear" },
+        ],
+        week: [
+            { window: "month", labelKey: "stats.chartMonth" },
+            { window: "year", labelKey: "stats.chartYear" },
+        ],
+        month: [
+            { window: "year", labelKey: "stats.chartYear" },
+            { window: "fiveYears", labelKey: "stats.chartFiveYears" },
+        ],
+        year: [
+            { window: "fiveYears", labelKey: "stats.chartFiveYears" },
+            { window: "tenYears", labelKey: "stats.chartTenYears" },
+        ],
+    };
 
     statsRows(stats: HistoryStats): Array<{ labelKey: TranslationKey; stats: HistoryPeriodStats }> {
         return [
@@ -278,60 +324,88 @@ export class HistoryStatsComponent {
         return minutes === 0 ? `${hours}h` : `${hours}h ${minutes}m`;
     }
 
-    selectPeriod(period: HistoryChartPeriod): void {
-        if (this.stats()?.chart.period !== period) {
-            this.chartChange.emit({ period, anchor: this.stats()?.chart.anchor });
+    selectUnit(unit: HistoryChartUnit): void {
+        const chart = this.stats()?.chart;
+        if (chart?.unit !== unit) {
+            this.chartChange.emit({
+                unit,
+                window: this.chartWindows[unit][0].window,
+                anchor: chart?.anchor,
+            });
         }
+    }
+
+    selectWindow(window: HistoryChartWindow): void {
+        const chart = this.stats()?.chart;
+        if (chart && chart.window !== window) {
+            this.chartChange.emit({ unit: chart.unit, window, anchor: chart.anchor });
+        }
+    }
+
+    windowsFor(unit: HistoryChartUnit) {
+        return this.chartWindows[unit];
     }
 
     navigate(chart: HistoryChart, anchor: string | null): void {
         if (anchor) {
-            this.chartChange.emit({ period: chart.period, anchor });
+            this.chartChange.emit({ unit: chart.unit, window: chart.window, anchor });
         }
     }
 
-    togglePoint(event: Event, key: string): void {
+    showPointTooltip(event: PointerEvent, point: HistoryChartPoint): void {
+        if (this.pointTooltip()?.pinned) return;
+        this.pointTooltip.set(this.tooltipAt(event, point, false));
+    }
+
+    hidePointTooltip(): void {
+        if (!this.pointTooltip()?.pinned) this.pointTooltip.set(null);
+    }
+
+    pinPointTooltip(event: PointerEvent, point: HistoryChartPoint): void {
         event.stopPropagation();
-        this.selectedPointKey.update((selected) => (selected === key ? null : key));
+        const tooltip = this.pointTooltip();
+        this.pointTooltip.set(
+            tooltip?.pinned && tooltip.point.from === point.from
+                ? null
+                : this.tooltipAt(event, point, true),
+        );
     }
 
     @HostListener("document:click")
     closePointTooltip(): void {
-        this.selectedPointKey.set(null);
+        this.pointTooltip.set(null);
     }
 
     formatChartRange(chart: HistoryChart): string {
-        if (chart.period === "year") {
-            return chart.from.slice(0, 4);
-        }
-        if (chart.period === "month") {
-            return this.formatDate(chart.from, { month: "long", year: "numeric" });
-        }
         const from = this.formatDate(chart.from, { day: "numeric", month: "short" });
-        const to = this.formatDate(chart.to, { day: "numeric", month: "short", year: "numeric" });
+        const to = this.formatDate(addDays(chart.from, chart.dayCount - 1), {
+            day: "numeric",
+            month: "short",
+            year: "numeric",
+        });
         return `${from} - ${to}`;
     }
 
-    formatPointLabel(key: string, period: HistoryChartPeriod): string {
-        if (period === "year") {
-            return this.formatDate(`${key}-01`, { month: "short" });
-        }
-        if (period === "week") {
-            return this.formatDate(key, { weekday: "short" });
-        }
-        return this.formatDate(key, { day: "numeric" });
+    formatPointLabel(from: string, range: HistoryChartUnit): string {
+        if (range === "year") return from.slice(0, 4);
+        if (range === "month") return this.formatDate(from, { month: "short" });
+        if (range === "day") return this.formatDate(from, { weekday: "short" });
+        return this.formatDate(from, { day: "numeric", month: "short" });
     }
 
-    fullPointDate(key: string, period: HistoryChartPeriod): string {
-        if (period === "year") {
-            return this.formatDate(`${key}-01`, { month: "long", year: "numeric" });
-        }
-        return this.formatDate(key, {
-            weekday: "long",
+    fullPointDate(point: HistoryChartPoint): string {
+        const from = this.formatDate(point.from, {
             day: "numeric",
             month: "long",
             year: "numeric",
         });
+        if (point.dayCount === 1) return from;
+        const to = this.formatDate(addDays(point.from, point.dayCount - 1), {
+            day: "numeric",
+            month: "long",
+            year: "numeric",
+        });
+        return `${from} - ${to}`;
     }
 
     maxSeconds(points: HistoryChartPoint[]): number {
@@ -343,15 +417,15 @@ export class HistoryStatsComponent {
         return maximum === 0 ? 0 : Math.max(3, (totalSeconds / maximum) * 100);
     }
 
-    barWidth(period: HistoryChartPeriod): string {
-        return period === "month" ? "w-7 sm:w-8" : "w-12 sm:w-16";
+    barWidth(unit: HistoryChartUnit): string {
+        return unit === "day" ? "w-10 sm:w-12" : "w-12 sm:w-16";
     }
 
     chartAriaLabel(chart: HistoryChart): string {
         const values = chart.points
             .map(
                 (item) =>
-                    `${this.formatPointLabel(item.key, chart.period)} ${this.formatCompactDuration(item.totalSeconds)}`,
+                    `${this.formatPointLabel(item.from, item.range)} ${this.formatCompactDuration(item.totalSeconds)}`,
             )
             .join(", ");
         return `${this.i18n.t("stats.chartAria")}: ${values}`;
@@ -363,4 +437,19 @@ export class HistoryStatsComponent {
             timeZone: "UTC",
         }).format(new Date(`${day}T00:00:00.000Z`));
     }
+
+    private tooltipAt(event: PointerEvent, point: HistoryChartPoint, pinned: boolean) {
+        return {
+            point,
+            x: Math.min(event.clientX + 12, window.innerWidth - 204),
+            y: Math.min(event.clientY + 12, window.innerHeight - 84),
+            pinned,
+        };
+    }
+}
+
+function addDays(day: string, count: number): string {
+    const date = new Date(`${day}T00:00:00.000Z`);
+    date.setUTCDate(date.getUTCDate() + count);
+    return date.toISOString().slice(0, 10);
 }

@@ -20,7 +20,8 @@ const daySchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid date");
 const timestampSchema = z.union([z.string(), z.number()]);
 const exportFormatSchema = z.enum(["csv", "xlsx"]);
 const exportLanguageSchema = z.enum(["fr", "en"]);
-const chartPeriodSchema = z.enum(["week", "month", "year"]);
+const chartUnitSchema = z.enum(["day", "week", "month", "year"]);
+const chartWindowSchema = z.enum(["week", "month", "year", "fiveYears", "tenYears"]);
 const exportIsoSchema = z.preprocess(
     (value) => (value === undefined ? "false" : value),
     z.enum(["true", "false"]).transform((value) => value === "true"),
@@ -31,10 +32,12 @@ interface StatsPeriod {
     to: string;
 }
 
-type ChartPeriod = z.infer<typeof chartPeriodSchema>;
+type ChartUnit = z.infer<typeof chartUnitSchema>;
+type ChartWindow = z.infer<typeof chartWindowSchema>;
 
 interface ChartRange extends StatsPeriod {
-    period: ChartPeriod;
+    unit: ChartUnit;
+    window: ChartWindow;
     anchor: string;
     previousAnchor: string;
     nextAnchor: string | null;
@@ -221,7 +224,8 @@ const pointagesRoutes: FastifyPluginAsyncZod = async (fastify) => {
         url: "/pointages/stats",
         schema: {
             querystring: z.object({
-                period: chartPeriodSchema.default("year"),
+                unit: chartUnitSchema.default("day"),
+                window: chartWindowSchema.optional(),
                 anchor: daySchema.optional(),
             }),
         },
@@ -229,7 +233,12 @@ const pointagesRoutes: FastifyPluginAsyncZod = async (fastify) => {
             const user = requireUser(request);
             const now = new Date();
             const periods = statsPeriods(now);
-            const chart = chartRange(request.query.period, request.query.anchor, now);
+            const chart = chartRange(
+                request.query.unit,
+                request.query.window,
+                request.query.anchor,
+                now,
+            );
 
             const loadPeriod = (period: StatsPeriod) =>
                 isDemoUser(user)
@@ -263,7 +272,13 @@ const pointagesRoutes: FastifyPluginAsyncZod = async (fastify) => {
                     (user.weeklyTargetMinutes * 60) / user.workDaysPerWeek,
                 ),
                 chart: {
-                    ...chart,
+                    unit: chart.unit,
+                    window: chart.window,
+                    anchor: chart.anchor,
+                    from: chart.from,
+                    dayCount: inclusiveDayCount(chart.from, chart.to),
+                    previousAnchor: chart.previousAnchor,
+                    nextAnchor: chart.nextAnchor,
                     points: summarizeChart(
                         chartRecords,
                         chart,
@@ -581,27 +596,34 @@ function summarizePeriod(records: Array<Pick<Pointage, "day" | Slot>>, period: S
     };
 }
 
-function chartRange(period: ChartPeriod, anchor: string | undefined, now: Date): ChartRange {
+function chartRange(
+    unit: ChartUnit,
+    requestedWindow: ChartWindow | undefined,
+    anchor: string | undefined,
+    now: Date,
+): ChartRange {
+    const window = windowForUnit(unit, requestedWindow);
     const today = fromISODate(toISODate(now));
-    const currentStart = startOfChartPeriod(period, now);
+    const currentStart = startOfChartWindow(window, now);
     const requestedAnchor = anchor ? fromISODate(anchor) : today;
     const selectedAnchor = requestedAnchor > today ? today : requestedAnchor;
-    const start = startOfChartPeriod(period, selectedAnchor);
+    const start = startOfChartWindow(window, selectedAnchor);
 
-    const fullEnd = endOfChartPeriod(period, start);
+    const fullEnd = endOfChartWindow(window, start);
     const todayKey = toISODate(today);
     const from = toISODate(start);
     const to = toISODate(fullEnd) > todayKey ? todayKey : toISODate(fullEnd);
-    const previous = shiftChartAnchor(period, selectedAnchor, -1);
-    const next = shiftChartAnchor(period, selectedAnchor, 1);
+    const previous = shiftChartAnchor(window, selectedAnchor, -1);
+    const next = shiftChartAnchor(window, selectedAnchor, 1);
 
     return {
-        period,
+        unit,
+        window,
         anchor: toISODate(selectedAnchor),
         from,
         to,
         previousAnchor: toISODate(previous),
-        nextAnchor: startOfChartPeriod(period, next) <= currentStart ? toISODate(next) : null,
+        nextAnchor: startOfChartWindow(window, next) <= currentStart ? toISODate(next) : null,
     };
 }
 
@@ -613,12 +635,13 @@ function summarizeChart(
 ) {
     const totals = new Map<string, number>();
     for (const record of records) {
-        const key = range.period === "year" ? record.day.slice(0, 7) : record.day;
-        totals.set(key, (totals.get(key) ?? 0) + computeTotalSeconds(record as Pointage));
+        totals.set(record.day, computeTotalSeconds(record as Pointage));
     }
 
     const points: Array<{
-        key: string;
+        from: string;
+        range: ChartUnit;
+        dayCount: number;
         totalSeconds: number;
         targetSeconds: number;
         hot: boolean;
@@ -629,85 +652,122 @@ function summarizeChart(
     const dailyTargetSeconds = Math.round(weeklyTargetSeconds / workDaysPerWeek);
 
     while (cursor <= end) {
-        const key = range.period === "year" ? toISODate(cursor).slice(0, 7) : toISODate(cursor);
-        const totalSeconds = totals.get(key) ?? 0;
+        const pointFrom = new Date(cursor);
+        const pointTo = endOfChartUnit(range.unit, pointFrom);
+        if (pointTo > end) pointTo.setTime(end.getTime());
+        const from = toISODate(pointFrom);
+        const to = toISODate(pointTo);
+        let totalSeconds = 0;
+        const day = new Date(pointFrom);
+        while (day <= pointTo) {
+            totalSeconds += totals.get(toISODate(day)) ?? 0;
+            day.setUTCDate(day.getUTCDate() + 1);
+        }
 
-        // Daily bars use the configured weekly target divided by worked days.
-        // Monthly bars are prorated by calendar length so 40h/week becomes
-        // roughly 177h for a 31-day month. Heat reaches its maximum at 100%.
+        // A day uses the target derived from configured work days. Aggregates
+        // use weeklyTarget * visibleCalendarDays / 7. This also prorates the
+        // partial week/month/year at a window edge and the current period.
         const targetSeconds =
-            range.period === "year"
-                ? Math.round((weeklyTargetSeconds * daysInMonth(cursor)) / 7)
-                : dailyTargetSeconds;
+            range.unit === "day"
+                ? dailyTargetSeconds
+                : Math.round((weeklyTargetSeconds * inclusiveDayCount(from, to)) / 7);
         points.push({
-            key,
+            from,
+            range: range.unit,
+            dayCount: inclusiveDayCount(from, to),
             totalSeconds,
             targetSeconds,
-            // The flame is intentionally limited to day bars and starts 15m before target.
-            hot:
-                range.period !== "year" &&
-                totalSeconds > 0 &&
-                totalSeconds >= targetSeconds - 15 * 60,
+            // Every unit gets the same 15-minute early-warning threshold.
+            hot: totalSeconds > 0 && totalSeconds >= targetSeconds - 15 * 60,
         });
-        if (range.period === "year") {
-            cursor.setUTCMonth(cursor.getUTCMonth() + 1, 1);
-        } else {
-            cursor.setUTCDate(cursor.getUTCDate() + 1);
-        }
+        cursor.setTime(pointTo.getTime());
+        cursor.setUTCDate(cursor.getUTCDate() + 1);
     }
 
     return points;
 }
 
-function startOfChartPeriod(period: ChartPeriod, date: Date): Date {
+function startOfChartWindow(window: ChartWindow, date: Date): Date {
     const start = new Date(date);
     start.setUTCHours(0, 0, 0, 0);
 
-    if (period === "week") {
+    if (window === "week") {
         const day = start.getUTCDay();
         start.setUTCDate(start.getUTCDate() - (day === 0 ? 6 : day - 1));
-    } else if (period === "month") {
+    } else if (window === "month") {
         start.setUTCDate(1);
-    } else {
+    } else if (window === "year") {
         start.setUTCMonth(0, 1);
+    } else {
+        const size = window === "fiveYears" ? 5 : 10;
+        start.setUTCFullYear(Math.floor(start.getUTCFullYear() / size) * size, 0, 1);
     }
 
     return start;
 }
 
-function endOfChartPeriod(period: ChartPeriod, start: Date): Date {
-    const end = shiftChartPeriod(period, start, 1);
+function endOfChartWindow(window: ChartWindow, start: Date): Date {
+    const end = shiftChartWindow(window, start, 1);
     end.setUTCDate(end.getUTCDate() - 1);
     return end;
 }
 
-function shiftChartPeriod(period: ChartPeriod, date: Date, amount: number): Date {
+function shiftChartWindow(window: ChartWindow, date: Date, amount: number): Date {
     const shifted = new Date(date);
-    if (period === "week") {
+    if (window === "week") {
         shifted.setUTCDate(shifted.getUTCDate() + amount * 7);
-    } else if (period === "month") {
+    } else if (window === "month") {
         shifted.setUTCMonth(shifted.getUTCMonth() + amount, 1);
     } else {
-        shifted.setUTCFullYear(shifted.getUTCFullYear() + amount, 0, 1);
+        const years = window === "year" ? 1 : window === "fiveYears" ? 5 : 10;
+        shifted.setUTCFullYear(shifted.getUTCFullYear() + amount * years, 0, 1);
     }
     return shifted;
 }
 
-function shiftChartAnchor(period: ChartPeriod, date: Date, amount: number): Date {
-    if (period === "week") {
-        return shiftChartPeriod(period, date, amount);
+function shiftChartAnchor(window: ChartWindow, date: Date, amount: number): Date {
+    if (window === "week") {
+        return shiftChartWindow(window, date, amount);
     }
 
     const shifted = new Date(date);
     const day = shifted.getUTCDate();
     shifted.setUTCDate(1);
-    if (period === "month") {
+    if (window === "month") {
         shifted.setUTCMonth(shifted.getUTCMonth() + amount);
     } else {
-        shifted.setUTCFullYear(shifted.getUTCFullYear() + amount);
+        const years = window === "year" ? 1 : window === "fiveYears" ? 5 : 10;
+        shifted.setUTCFullYear(shifted.getUTCFullYear() + amount * years);
     }
     shifted.setUTCDate(Math.min(day, daysInMonth(shifted)));
     return shifted;
+}
+
+function endOfChartUnit(unit: ChartUnit, from: Date): Date {
+    const end = new Date(from);
+    if (unit === "day") return end;
+    if (unit === "week") {
+        end.setUTCDate(end.getUTCDate() + (7 - ((end.getUTCDay() || 7) - 1)) - 1);
+    } else if (unit === "month") {
+        end.setUTCMonth(end.getUTCMonth() + 1, 0);
+    } else {
+        end.setUTCFullYear(end.getUTCFullYear() + 1, 0, 0);
+    }
+    return end;
+}
+
+function windowForUnit(unit: ChartUnit, requested: ChartWindow | undefined): ChartWindow {
+    const allowed: Record<ChartUnit, ChartWindow[]> = {
+        day: ["week", "month", "year"],
+        week: ["month", "year"],
+        month: ["year", "fiveYears"],
+        year: ["fiveYears", "tenYears"],
+    };
+    return requested && allowed[unit].includes(requested) ? requested : allowed[unit][0];
+}
+
+function inclusiveDayCount(from: string, to: string): number {
+    return Math.floor((fromISODate(to).getTime() - fromISODate(from).getTime()) / 86400000) + 1;
 }
 
 function daysInMonth(date: Date): number {

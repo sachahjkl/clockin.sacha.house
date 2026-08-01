@@ -190,7 +190,7 @@ export class HistoryComponent {
         });
     }
 
-    loadStats(request: HistoryChartRequest = { period: "year" }): void {
+    loadStats(request: HistoryChartRequest = { unit: "day", window: "week" }): void {
         this.statsError.set(null);
         this.statsPending.set(true);
         this.pointagesClient

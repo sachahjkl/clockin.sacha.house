@@ -35,11 +35,14 @@ export class PointagesClient {
         });
     }
 
-    loadHistoryStats(request: HistoryChartRequest = { period: "year" }): Observable<HistoryStats> {
+    loadHistoryStats(
+        request: HistoryChartRequest = { unit: "day", window: "week" },
+    ): Observable<HistoryStats> {
         return this.http.get<HistoryStats>("/pointages/stats", {
             params: new HttpParams({
                 fromObject: {
-                    period: request.period,
+                    unit: request.unit,
+                    window: request.window,
                     ...(request.anchor ? { anchor: request.anchor } : {}),
                 },
             }),
