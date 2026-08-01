@@ -1,5 +1,3 @@
-[English](README.md) | [Français](README.fr.md)
-
 # clockin.sacha.house
 
 A small, self-hosted clock-in app for tracking daily clock-ins. Built as an Angular SPA served by a Fastify backend, with Drizzle ORM on SQLite, packaged for NixOS.
