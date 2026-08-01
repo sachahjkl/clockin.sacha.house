@@ -9,7 +9,12 @@ import { HistoryVirtualListComponent } from "../../components/history-virtual-li
 import { HistoryStatsComponent } from "../../components/history-stats.component";
 import { I18nService, type TranslationKey } from "../../core/i18n.service";
 import { ToastService } from "../../core/toast.service";
-import type { HistoryPageData, HistoryStats, Pointage } from "../../core/models";
+import type {
+    HistoryChartRequest,
+    HistoryPageData,
+    HistoryStats,
+    Pointage,
+} from "../../core/models";
 
 interface HistoryPageRequest {
     offset: number;
@@ -53,7 +58,12 @@ const HISTORY_PAGE_SIZE = 500;
                 (loadPage)="loadPage($event)"
             />
 
-            <app-history-stats [stats]="stats()" [error]="statsError()" />
+            <app-history-stats
+                [stats]="stats()"
+                [error]="statsError()"
+                [pending]="statsPending()"
+                (chartChange)="loadStats($event)"
+            />
         </article>
     `,
 })
@@ -74,6 +84,7 @@ export class HistoryComponent {
     readonly targetHistoryIndex = signal<number | null>(null);
     readonly stats = signal<HistoryStats | null>(null);
     readonly statsError = signal<string | null>(null);
+    readonly statsPending = signal(false);
     readonly exportRangeInvalid = computed(() => this.exportRange().from > this.exportRange().to);
     private readonly loadedPages = new Set<string>([pageKey(0, HISTORY_PAGE_SIZE)]);
     private readonly pendingPages = new Set<string>();
@@ -178,9 +189,13 @@ export class HistoryComponent {
         });
     }
 
-    private loadStats(): void {
+    loadStats(request: HistoryChartRequest = { period: "year" }): void {
         this.statsError.set(null);
-        this.pointagesClient.loadHistoryStats().subscribe({
+        this.statsPending.set(true);
+        this.pointagesClient
+            .loadHistoryStats(request)
+            .pipe(finalize(() => this.statsPending.set(false)))
+            .subscribe({
             next: (stats) => {
                 this.stats.set(stats);
             },

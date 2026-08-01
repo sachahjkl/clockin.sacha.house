@@ -1,6 +1,13 @@
-import { Component, inject, input } from "@angular/core";
+import { Component, inject, input, output } from "@angular/core";
 import { I18nService, type TranslationKey } from "../core/i18n.service";
-import type { HistoryMonthlyStats, HistoryPeriodStats, HistoryStats } from "../core/models";
+import type {
+    HistoryChart,
+    HistoryChartPeriod,
+    HistoryChartPoint,
+    HistoryChartRequest,
+    HistoryPeriodStats,
+    HistoryStats,
+} from "../core/models";
 
 @Component({
     selector: "app-history-stats",
@@ -70,20 +77,71 @@ import type { HistoryMonthlyStats, HistoryPeriodStats, HistoryStats } from "../c
                             class="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600"
                         >
                             {{ i18n.t("stats.chartPeak") }}
-                            {{ formatCompactDuration(maxMonthlySeconds(currentStats.monthly)) }}
+                            {{ formatCompactDuration(maxSeconds(currentStats.chart.points)) }}
                         </span>
+                    </div>
+
+                    <div class="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                        <div
+                            class="inline-flex self-start rounded-xl bg-slate-100 p-1"
+                            [attr.aria-label]="i18n.t('stats.chartPeriod')"
+                        >
+                            @for (option of chartPeriods; track option.period) {
+                                <button
+                                    type="button"
+                                    class="cursor-pointer rounded-lg px-3 py-1.5 text-sm font-semibold transition disabled:cursor-wait"
+                                    [class.bg-white]="currentStats.chart.period === option.period"
+                                    [class.text-indigo-700]="currentStats.chart.period === option.period"
+                                    [class.shadow-sm]="currentStats.chart.period === option.period"
+                                    [class.text-slate-500]="currentStats.chart.period !== option.period"
+                                    [disabled]="pending()"
+                                    [attr.aria-pressed]="currentStats.chart.period === option.period"
+                                    (click)="selectPeriod(option.period)"
+                                >
+                                    {{ i18n.t(option.labelKey) }}
+                                </button>
+                            }
+                        </div>
+
+                        <div class="flex items-center gap-2">
+                            <button
+                                type="button"
+                                class="inline-flex size-9 cursor-pointer items-center justify-center rounded-lg border border-slate-200 bg-white text-lg font-bold text-slate-600 transition hover:border-indigo-300 hover:text-indigo-700 disabled:cursor-wait disabled:opacity-40"
+                                [disabled]="pending()"
+                                [attr.aria-label]="i18n.t('stats.chartPrevious')"
+                                (click)="navigate(currentStats.chart, currentStats.chart.previousAnchor)"
+                            >
+                                <span aria-hidden="true">&larr;</span>
+                            </button>
+                            <strong class="min-w-36 text-center text-sm text-slate-700">
+                                {{ formatChartRange(currentStats.chart) }}
+                            </strong>
+                            <button
+                                type="button"
+                                class="inline-flex size-9 cursor-pointer items-center justify-center rounded-lg border border-slate-200 bg-white text-lg font-bold text-slate-600 transition hover:border-indigo-300 hover:text-indigo-700 disabled:cursor-not-allowed disabled:opacity-40"
+                                [disabled]="pending() || currentStats.chart.nextAnchor === null"
+                                [attr.aria-label]="i18n.t('stats.chartNext')"
+                                (click)="navigate(currentStats.chart, currentStats.chart.nextAnchor)"
+                            >
+                                <span aria-hidden="true">&rarr;</span>
+                            </button>
+                        </div>
                     </div>
 
                     <div
                         class="mt-5 overflow-x-auto pb-1"
                         role="img"
-                        [attr.aria-label]="chartAriaLabel(currentStats.monthly)"
+                        [attr.aria-label]="chartAriaLabel(currentStats.chart)"
+                        [class.opacity-60]="pending()"
                     >
                         <div
                             class="flex h-56 min-w-max items-end gap-2 border-b border-slate-200 px-1 sm:gap-3"
                         >
-                            @for (item of currentStats.monthly; track item.month) {
-                                <div class="flex h-full w-12 flex-col justify-end sm:w-16">
+                            @for (item of currentStats.chart.points; track item.key) {
+                                <div
+                                    class="flex h-full flex-col justify-end"
+                                    [class]="barWidth(currentStats.chart.period)"
+                                >
                                     <span
                                         class="mb-2 text-center text-xs font-semibold text-slate-600"
                                     >
@@ -95,10 +153,10 @@ import type { HistoryMonthlyStats, HistoryPeriodStats, HistoryStats } from "../c
                                         <div
                                             class="w-full min-h-1 rounded-t-md bg-gradient-to-t from-indigo-600 to-sky-400"
                                             [style.height.%]="
-                                                barHeight(item.totalSeconds, currentStats.monthly)
+                                                barHeight(item.totalSeconds, currentStats.chart.points)
                                             "
                                             [attr.title]="
-                                                formatMonth(item.month) +
+                                                formatPointLabel(item.key, currentStats.chart.period) +
                                                 ' : ' +
                                                 formatDuration(item.totalSeconds)
                                             "
@@ -107,7 +165,7 @@ import type { HistoryMonthlyStats, HistoryPeriodStats, HistoryStats } from "../c
                                     <span
                                         class="py-2 text-center text-xs font-medium capitalize text-slate-500"
                                     >
-                                        {{ formatMonth(item.month) }}
+                                        {{ formatPointLabel(item.key, currentStats.chart.period) }}
                                     </span>
                                 </div>
                             }
@@ -126,6 +184,13 @@ export class HistoryStatsComponent {
     protected readonly i18n = inject(I18nService);
     stats = input<HistoryStats | null>(null);
     error = input<string | null>(null);
+    pending = input(false);
+    chartChange = output<HistoryChartRequest>();
+    readonly chartPeriods: Array<{ period: HistoryChartPeriod; labelKey: TranslationKey }> = [
+        { period: "week", labelKey: "stats.chartWeek" },
+        { period: "month", labelKey: "stats.chartMonth" },
+        { period: "year", labelKey: "stats.chartYear" },
+    ];
 
     statsRows(stats: HistoryStats): Array<{ labelKey: TranslationKey; stats: HistoryPeriodStats }> {
         return [
@@ -143,32 +208,74 @@ export class HistoryStatsComponent {
     }
 
     formatCompactDuration(totalSeconds: number): string {
-        const hours = Math.round(totalSeconds / 3600);
-        return `${hours}h`;
+        const totalMinutes = Math.round(totalSeconds / 60);
+        const hours = Math.floor(totalMinutes / 60);
+        const minutes = totalMinutes % 60;
+        if (hours === 0) return `${minutes}m`;
+        return minutes === 0 ? `${hours}h` : `${hours}h ${minutes}m`;
     }
 
-    formatMonth(month: string): string {
-        return new Intl.DateTimeFormat(this.i18n.dateLocale(), { month: "short" }).format(
-            new Date(`${month}-01T00:00:00`),
-        );
+    selectPeriod(period: HistoryChartPeriod): void {
+        if (this.stats()?.chart.period !== period) {
+            this.chartChange.emit({ period });
+        }
     }
 
-    maxMonthlySeconds(months: HistoryMonthlyStats[]): number {
-        return Math.max(0, ...months.map((item) => item.totalSeconds));
+    navigate(chart: HistoryChart, anchor: string | null): void {
+        if (anchor) {
+            this.chartChange.emit({ period: chart.period, anchor });
+        }
     }
 
-    barHeight(totalSeconds: number, months: HistoryMonthlyStats[]): number {
-        const maximum = this.maxMonthlySeconds(months);
+    formatChartRange(chart: HistoryChart): string {
+        if (chart.period === "year") {
+            return chart.from.slice(0, 4);
+        }
+        if (chart.period === "month") {
+            return this.formatDate(chart.from, { month: "long", year: "numeric" });
+        }
+        const from = this.formatDate(chart.from, { day: "numeric", month: "short" });
+        const to = this.formatDate(chart.to, { day: "numeric", month: "short", year: "numeric" });
+        return `${from} - ${to}`;
+    }
+
+    formatPointLabel(key: string, period: HistoryChartPeriod): string {
+        if (period === "year") {
+            return this.formatDate(`${key}-01`, { month: "short" });
+        }
+        if (period === "week") {
+            return this.formatDate(key, { weekday: "short" });
+        }
+        return this.formatDate(key, { day: "numeric" });
+    }
+
+    maxSeconds(points: HistoryChartPoint[]): number {
+        return Math.max(0, ...points.map((item) => item.totalSeconds));
+    }
+
+    barHeight(totalSeconds: number, points: HistoryChartPoint[]): number {
+        const maximum = this.maxSeconds(points);
         return maximum === 0 ? 0 : Math.max(3, (totalSeconds / maximum) * 100);
     }
 
-    chartAriaLabel(months: HistoryMonthlyStats[]): string {
-        const values = months
+    barWidth(period: HistoryChartPeriod): string {
+        return period === "month" ? "w-7 sm:w-8" : "w-12 sm:w-16";
+    }
+
+    chartAriaLabel(chart: HistoryChart): string {
+        const values = chart.points
             .map(
                 (item) =>
-                    `${this.formatMonth(item.month)} ${this.formatCompactDuration(item.totalSeconds)}`,
+                    `${this.formatPointLabel(item.key, chart.period)} ${this.formatCompactDuration(item.totalSeconds)}`,
             )
             .join(", ");
         return `${this.i18n.t("stats.chartAria")}: ${values}`;
+    }
+
+    private formatDate(day: string, options: Intl.DateTimeFormatOptions): string {
+        return new Intl.DateTimeFormat(this.i18n.dateLocale(), {
+            ...options,
+            timeZone: "UTC",
+        }).format(new Date(`${day}T00:00:00.000Z`));
     }
 }

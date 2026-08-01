@@ -2,7 +2,14 @@ import { HttpClient, HttpParams } from "@angular/common/http";
 import { Injectable, inject } from "@angular/core";
 import type { Observable } from "rxjs";
 import { I18nService } from "./i18n.service";
-import type { HistoryIndexLookup, HistoryPageData, HistoryStats, Pointage, Slot } from "./models";
+import type {
+    HistoryChartRequest,
+    HistoryIndexLookup,
+    HistoryPageData,
+    HistoryStats,
+    Pointage,
+    Slot,
+} from "./models";
 
 @Injectable({ providedIn: "root" })
 export class PointagesClient {
@@ -28,8 +35,15 @@ export class PointagesClient {
         });
     }
 
-    loadHistoryStats(): Observable<HistoryStats> {
-        return this.http.get<HistoryStats>("/pointages/stats");
+    loadHistoryStats(request: HistoryChartRequest = { period: "year" }): Observable<HistoryStats> {
+        return this.http.get<HistoryStats>("/pointages/stats", {
+            params: new HttpParams({
+                fromObject: {
+                    period: request.period,
+                    ...(request.anchor ? { anchor: request.anchor } : {}),
+                },
+            }),
+        });
     }
 
     pointer(timestamp: string): Observable<Pointage> {

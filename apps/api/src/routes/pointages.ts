@@ -20,6 +20,7 @@ const daySchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid date");
 const timestampSchema = z.union([z.string(), z.number()]);
 const exportFormatSchema = z.enum(["csv", "xlsx"]);
 const exportLanguageSchema = z.enum(["fr", "en"]);
+const chartPeriodSchema = z.enum(["week", "month", "year"]);
 const exportIsoSchema = z.preprocess(
     (value) => (value === undefined ? "false" : value),
     z.enum(["true", "false"]).transform((value) => value === "true"),
@@ -28,6 +29,14 @@ const exportIsoSchema = z.preprocess(
 interface StatsPeriod {
     from: string;
     to: string;
+}
+
+type ChartPeriod = z.infer<typeof chartPeriodSchema>;
+
+interface ChartRange extends StatsPeriod {
+    period: ChartPeriod;
+    previousAnchor: string;
+    nextAnchor: string | null;
 }
 
 function toISODate(date: Date) {
@@ -209,28 +218,50 @@ const pointagesRoutes: FastifyPluginAsyncZod = async (fastify) => {
     fastify.route({
         method: "GET",
         url: "/pointages/stats",
+        schema: {
+            querystring: z.object({
+                period: chartPeriodSchema.default("year"),
+                anchor: daySchema.optional(),
+            }),
+        },
         handler: async (request, reply) => {
             const user = requireUser(request);
-            const periods = statsPeriods(new Date());
+            const now = new Date();
+            const periods = statsPeriods(now);
+            const chart = chartRange(request.query.period, request.query.anchor, now);
 
-            const records = isDemoUser(user)
-                ? demoPointagesInRange(user, periods.year.from, periods.year.to)
-                : await db
-                      .select()
-                      .from(pointages)
-                      .where(
-                          and(
-                              eq(pointages.userId, user.id),
-                              between(pointages.day, periods.year.from, periods.year.to),
-                          ),
-                      )
-                      .all();
+            const loadPeriod = (period: StatsPeriod) =>
+                isDemoUser(user)
+                    ? Promise.resolve(demoPointagesInRange(user, period.from, period.to))
+                    : db
+                          .select()
+                          .from(pointages)
+                          .where(
+                              and(
+                                  eq(pointages.userId, user.id),
+                                  between(pointages.day, period.from, period.to),
+                              ),
+                          )
+                          .all();
+
+            const recordsPromise = loadPeriod(periods.year);
+            const chartRecordsPromise =
+                chart.from === periods.year.from && chart.to === periods.year.to
+                    ? recordsPromise
+                    : loadPeriod(chart);
+            const [records, chartRecords] = await Promise.all([
+                recordsPromise,
+                chartRecordsPromise,
+            ]);
 
             return reply.send({
                 week: summarizePeriod(records, periods.week),
                 month: summarizePeriod(records, periods.month),
                 year: summarizePeriod(records, periods.year),
-                monthly: summarizeMonths(records, periods.year),
+                chart: {
+                    ...chart,
+                    points: summarizeChart(chartRecords, chart),
+                },
             });
         },
     });
@@ -541,21 +572,89 @@ function summarizePeriod(records: Array<Pick<Pointage, "day" | Slot>>, period: S
     };
 }
 
-function summarizeMonths(records: Array<Pick<Pointage, "day" | Slot>>, period: StatsPeriod) {
-    const months: Array<{ month: string; totalSeconds: number }> = [];
-    const lastMonth = Number(period.to.slice(5, 7));
-
-    for (let month = 1; month <= lastMonth; month++) {
-        const key = `${period.to.slice(0, 4)}-${String(month).padStart(2, "0")}`;
-        months.push({
-            month: key,
-            totalSeconds: records
-                .filter((record) => record.day.startsWith(key))
-                .reduce((total, record) => total + computeTotalSeconds(record as Pointage), 0),
-        });
+function chartRange(period: ChartPeriod, anchor: string | undefined, now: Date): ChartRange {
+    const currentStart = startOfChartPeriod(period, now);
+    let start = startOfChartPeriod(period, anchor ? fromISODate(anchor) : now);
+    if (start > currentStart) {
+        start = currentStart;
     }
 
-    return months;
+    const fullEnd = endOfChartPeriod(period, start);
+    const today = toISODate(now);
+    const from = toISODate(start);
+    const to = toISODate(fullEnd) > today ? today : toISODate(fullEnd);
+    const previous = shiftChartPeriod(period, start, -1);
+    const next = shiftChartPeriod(period, start, 1);
+
+    return {
+        period,
+        from,
+        to,
+        previousAnchor: toISODate(previous),
+        nextAnchor: next <= currentStart ? toISODate(next) : null,
+    };
+}
+
+function summarizeChart(records: Array<Pick<Pointage, "day" | Slot>>, range: ChartRange) {
+    const totals = new Map<string, number>();
+    for (const record of records) {
+        const key = range.period === "year" ? record.day.slice(0, 7) : record.day;
+        totals.set(key, (totals.get(key) ?? 0) + computeTotalSeconds(record as Pointage));
+    }
+
+    const points: Array<{ key: string; totalSeconds: number }> = [];
+    const cursor = fromISODate(range.from);
+    const end = fromISODate(range.to);
+
+    while (cursor <= end) {
+        const key = range.period === "year" ? toISODate(cursor).slice(0, 7) : toISODate(cursor);
+        points.push({ key, totalSeconds: totals.get(key) ?? 0 });
+        if (range.period === "year") {
+            cursor.setUTCMonth(cursor.getUTCMonth() + 1, 1);
+        } else {
+            cursor.setUTCDate(cursor.getUTCDate() + 1);
+        }
+    }
+
+    return points;
+}
+
+function startOfChartPeriod(period: ChartPeriod, date: Date): Date {
+    const start = new Date(date);
+    start.setUTCHours(0, 0, 0, 0);
+
+    if (period === "week") {
+        const day = start.getUTCDay();
+        start.setUTCDate(start.getUTCDate() - (day === 0 ? 6 : day - 1));
+    } else if (period === "month") {
+        start.setUTCDate(1);
+    } else {
+        start.setUTCMonth(0, 1);
+    }
+
+    return start;
+}
+
+function endOfChartPeriod(period: ChartPeriod, start: Date): Date {
+    const end = shiftChartPeriod(period, start, 1);
+    end.setUTCDate(end.getUTCDate() - 1);
+    return end;
+}
+
+function shiftChartPeriod(period: ChartPeriod, date: Date, amount: number): Date {
+    const shifted = new Date(date);
+    if (period === "week") {
+        shifted.setUTCDate(shifted.getUTCDate() + amount * 7);
+    } else if (period === "month") {
+        shifted.setUTCMonth(shifted.getUTCMonth() + amount, 1);
+    } else {
+        shifted.setUTCFullYear(shifted.getUTCFullYear() + amount, 0, 1);
+    }
+    return shifted;
+}
+
+function fromISODate(day: string): Date {
+    return new Date(`${day}T00:00:00.000Z`);
 }
 
 function statsPeriods(now: Date): Record<"week" | "month" | "year", StatsPeriod> {

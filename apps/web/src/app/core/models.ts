@@ -41,16 +41,32 @@ export interface HistoryPeriodStats {
     workedDays: number;
 }
 
-export interface HistoryMonthlyStats {
-    month: string;
+export type HistoryChartPeriod = "week" | "month" | "year";
+
+export interface HistoryChartPoint {
+    key: string;
     totalSeconds: number;
+}
+
+export interface HistoryChart {
+    period: HistoryChartPeriod;
+    from: string;
+    to: string;
+    previousAnchor: string;
+    nextAnchor: string | null;
+    points: HistoryChartPoint[];
+}
+
+export interface HistoryChartRequest {
+    period: HistoryChartPeriod;
+    anchor?: string;
 }
 
 export interface HistoryStats {
     week: HistoryPeriodStats;
     month: HistoryPeriodStats;
     year: HistoryPeriodStats;
-    monthly: HistoryMonthlyStats[];
+    chart: HistoryChart;
 }
 
 export type Slot = "firstEntry" | "firstExit" | "secondEntry" | "secondExit";
