@@ -1,6 +1,8 @@
+[English](README.md) | [Français](README.fr.md)
+
 # clockin.sacha.house
 
-A small, self-hosted clock-in app for tracking daily pointages. Built as an Angular SPA served by a Fastify backend, with Drizzle ORM on SQLite, packaged for NixOS.
+A small, self-hosted clock-in app for tracking daily clock-ins. Built as an Angular SPA served by a Fastify backend, with Drizzle ORM on SQLite, packaged for NixOS.
 
 ## Stack
 
@@ -107,7 +109,7 @@ The service runs as a `clockin` system user and stores data in `databaseDir/cloc
 
 ## Identity model
 
-There are no passwords. When a user clicks "Créer un compte", the backend generates a short sqid, stores it, and returns it. The id is kept in the browser's `localStorage` and sent as a `Authorization: Bearer <id>` header. Clearing local storage means creating or pasting in an existing id on the `/account` page.
+There are no passwords. When a user clicks "Create account", the backend generates a short sqid, stores it, and returns it. The id is kept in the browser's `localStorage` and sent as a `Authorization: Bearer <id>` header. Clearing local storage means creating or pasting in an existing id on the `/account` page.
 
 ## Database migrations
 
