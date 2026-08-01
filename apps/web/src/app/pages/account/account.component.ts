@@ -7,6 +7,10 @@ import { I18nService } from "../../core/i18n.service";
 import { ToastService } from "../../core/toast.service";
 import type { User } from "../../core/models";
 import { ProfileClient } from "../../core/profile.client";
+import {
+    DEFAULT_WEEKLY_TARGET_MINUTES,
+    DEFAULT_WORK_DAYS_PER_WEEK,
+} from "../../core/work-target";
 
 @Component({
     selector: "app-account",
@@ -67,6 +71,62 @@ import { ProfileClient } from "../../core/profile.client";
                         />
                     </label>
 
+                    <div class="border-t border-slate-200 pt-4">
+                        <div class="flex flex-wrap items-start justify-between gap-3">
+                            <div>
+                                <h3 class="font-bold text-slate-900">
+                                    {{ i18n.t("account.workTargetTitle") }}
+                                </h3>
+                                <p class="mt-1 text-sm text-slate-600">
+                                    {{ i18n.t("account.workTargetHelp") }}
+                                </p>
+                            </div>
+                            <button
+                                type="button"
+                                class="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-600 transition hover:border-sky-300 hover:text-sky-700"
+                                (click)="resetWorkTarget()"
+                            >
+                                <span aria-hidden="true">&circlearrowleft;</span>
+                                {{ i18n.t("account.workTargetReset") }}
+                            </button>
+                        </div>
+
+                        <div class="mt-4 grid gap-4 sm:grid-cols-2">
+                            <label class="block text-sm font-medium text-slate-700">
+                                {{ i18n.t("account.weeklyTarget") }}
+                                <input
+                                    type="number"
+                                    inputmode="decimal"
+                                    min="1"
+                                    max="168"
+                                    step="0.25"
+                                    class="mt-1 block w-full rounded-xl border border-transparent bg-slate-100 px-3 py-2.5 text-slate-900 outline-none transition focus:border-slate-300 focus:bg-white focus:ring-0"
+                                    [value]="weeklyTargetHours()"
+                                    (input)="
+                                        weeklyTargetHours.set($any($event.target).valueAsNumber);
+                                        success.set(null)
+                                    "
+                                />
+                            </label>
+                            <label class="block text-sm font-medium text-slate-700">
+                                {{ i18n.t("account.workDaysPerWeek") }}
+                                <input
+                                    type="number"
+                                    inputmode="numeric"
+                                    min="1"
+                                    max="7"
+                                    step="1"
+                                    class="mt-1 block w-full rounded-xl border border-transparent bg-slate-100 px-3 py-2.5 text-slate-900 outline-none transition focus:border-slate-300 focus:bg-white focus:ring-0"
+                                    [value]="workDaysPerWeek()"
+                                    (input)="
+                                        workDaysPerWeek.set($any($event.target).valueAsNumber);
+                                        success.set(null)
+                                    "
+                                />
+                            </label>
+                        </div>
+                    </div>
+
                     <button
                         type="submit"
                         class="inline-flex w-full cursor-pointer items-center justify-center rounded-xl bg-sky-600 px-4 py-2 font-semibold text-white shadow-sm transition hover:bg-sky-700 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
@@ -112,6 +172,12 @@ export class AccountComponent {
     protected readonly success = signal<string | null>(null);
     protected readonly name = linkedSignal(() => this.resolvedProfile().name ?? "");
     protected readonly email = linkedSignal(() => this.resolvedProfile().email ?? "");
+    protected readonly weeklyTargetHours = linkedSignal(
+        () => this.resolvedProfile().weeklyTargetMinutes / 60,
+    );
+    protected readonly workDaysPerWeek = linkedSignal(
+        () => this.resolvedProfile().workDaysPerWeek,
+    );
     protected readonly profilePending = signal(false);
     protected readonly deletePending = signal(false);
 
@@ -121,7 +187,12 @@ export class AccountComponent {
         this.profilePending.set(true);
         this.success.set(null);
         this.profileClient
-            .update({ name: this.name(), email: this.email() })
+            .update({
+                name: this.name(),
+                email: this.email(),
+                weeklyTargetMinutes: Math.round(this.weeklyTargetHours() * 60),
+                workDaysPerWeek: Math.round(this.workDaysPerWeek()),
+            })
             .pipe(finalize(() => this.profilePending.set(false)))
             .subscribe({
                 next: (profile) => {
@@ -152,9 +223,17 @@ export class AccountComponent {
             });
     }
 
+    resetWorkTarget(): void {
+        this.weeklyTargetHours.set(DEFAULT_WEEKLY_TARGET_MINUTES / 60);
+        this.workDaysPerWeek.set(DEFAULT_WORK_DAYS_PER_WEEK);
+        this.success.set(null);
+    }
+
     private applyProfile(profile: User): void {
         this.name.set(profile.name ?? "");
         this.email.set(profile.email ?? "");
+        this.weeklyTargetHours.set(profile.weeklyTargetMinutes / 60);
+        this.workDaysPerWeek.set(profile.workDaysPerWeek);
     }
 }
 

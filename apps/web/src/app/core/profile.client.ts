@@ -11,7 +11,12 @@ export class ProfileClient {
         return this.http.get<User>("/me");
     }
 
-    update(profile: { name: string; email: string }): Observable<User> {
+    update(profile: {
+        name: string;
+        email: string;
+        weeklyTargetMinutes: number;
+        workDaysPerWeek: number;
+    }): Observable<User> {
         return this.http.patch<User>("/me", profile);
     }
 

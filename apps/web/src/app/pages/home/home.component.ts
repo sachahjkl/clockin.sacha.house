@@ -12,8 +12,13 @@ import {
 } from "../../components/pointages-table.component";
 import { CopyableIdComponent } from "../../components/copyable-id.component";
 import { I18nService, type TranslationKey } from "../../core/i18n.service";
-import type { HomeData, Pointage, Slot, User } from "../../core/models";
+import type { HomeData, Pointage, User } from "../../core/models";
 import { ToastService } from "../../core/toast.service";
+import {
+    computePointageTotalSeconds,
+    dailyTargetSeconds,
+    isNearTarget,
+} from "../../core/work-target";
 
 @Component({
     selector: "app-home",
@@ -94,10 +99,21 @@ export class HomeComponent {
         const name = this.profileName();
         return name ? `${base}, ${name} !` : `${base} !`;
     });
-    readonly rows = computed(() => buildWeekRows(this.pointages(), this.homeData().from));
+    readonly dailyTargetSeconds = computed(() => {
+        const profile = this.profile();
+        return profile
+            ? dailyTargetSeconds(profile.weeklyTargetMinutes, profile.workDaysPerWeek)
+            : 0;
+    });
+    readonly rows = computed(() =>
+        buildWeekRows(this.pointages(), this.homeData().from, this.dailyTargetSeconds()),
+    );
     readonly weekTotal = computed(() =>
         formatDuration(
-            this.pointages().reduce((total, pointage) => total + computeTotalSeconds(pointage), 0),
+            this.pointages().reduce(
+                (total, pointage) => total + computePointageTotalSeconds(pointage),
+                0,
+            ),
         ),
     );
 
@@ -193,7 +209,7 @@ function startOfWeek(date: Date): Date {
     return start;
 }
 
-function buildWeekRows(pointages: Pointage[], from: string): TableRow[] {
+function buildWeekRows(pointages: Pointage[], from: string, targetSeconds: number): TableRow[] {
     const rows: TableRow[] = [];
     const start = new Date(`${from}T12:00:00`);
     start.setHours(0, 0, 0, 0);
@@ -203,6 +219,7 @@ function buildWeekRows(pointages: Pointage[], from: string): TableRow[] {
         d.setDate(start.getDate() + i);
         const dayStr = toISODate(d);
         const record = pointages.find((pointage) => pointage.day === dayStr);
+        const totalSeconds = record ? computePointageTotalSeconds(record) : 0;
         rows.push({
             day: dayStr,
             id: record?.id,
@@ -210,27 +227,11 @@ function buildWeekRows(pointages: Pointage[], from: string): TableRow[] {
             firstExit: record?.firstExit ?? null,
             secondEntry: record?.secondEntry ?? null,
             secondExit: record?.secondExit ?? null,
-            total: record ? formatDuration(computeTotalSeconds(record)) : "-",
+            total: record ? formatDuration(totalSeconds) : "-",
+            hot: isNearTarget(totalSeconds, targetSeconds),
         });
     }
     return rows;
-}
-
-function computeTotalSeconds(pointage: Pointage): number {
-    const slots: Slot[] = ["firstEntry", "firstExit", "secondEntry", "secondExit"];
-    let totalSeconds = 0;
-    for (let i = 0; i < slots.length; i += 2) {
-        const start = pointage[slots[i]];
-        const end = pointage[slots[i + 1]];
-        if (start && end) {
-            totalSeconds += Math.max(
-                0,
-                Math.floor((new Date(end).getTime() - new Date(start).getTime()) / 1000),
-            );
-        }
-    }
-
-    return totalSeconds;
 }
 
 function formatDuration(totalSeconds: number): string {

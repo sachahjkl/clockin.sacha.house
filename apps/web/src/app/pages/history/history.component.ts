@@ -52,6 +52,7 @@ const HISTORY_PAGE_SIZE = 500;
             <app-history-virtual-list
                 [pointages]="pointages()"
                 [total]="total()"
+                [dailyTargetSeconds]="stats()?.dailyTargetSeconds ?? 0"
                 [targetIndex]="targetHistoryIndex()"
                 (deletePointage)="remove($event)"
                 (goToDate)="goToDate($event)"

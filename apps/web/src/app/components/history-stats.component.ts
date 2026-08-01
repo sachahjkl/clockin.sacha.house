@@ -1,4 +1,4 @@
-import { Component, inject, input, output } from "@angular/core";
+import { Component, HostListener, inject, input, output, signal } from "@angular/core";
 import { I18nService, type TranslationKey } from "../core/i18n.service";
 import type {
     HistoryChart,
@@ -8,11 +8,27 @@ import type {
     HistoryPeriodStats,
     HistoryStats,
 } from "../core/models";
+import { heatColorHsl, heatColorOklch } from "../core/work-target";
 
 @Component({
     selector: "app-history-stats",
     standalone: true,
     host: { class: "block" },
+    styles: `
+        .heat-bar {
+            background: linear-gradient(to top, var(--heat-hsl), var(--heat-hsl-light));
+        }
+
+        @supports (background: linear-gradient(to right in oklch, red, blue)) {
+            .heat-bar {
+                background: linear-gradient(
+                    to top in oklch,
+                    var(--heat-oklch),
+                    var(--heat-oklch-light)
+                );
+            }
+        }
+    `,
     template: `
         <section class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
             <div class="border-b border-slate-200 px-4 py-4 sm:px-5">
@@ -130,35 +146,79 @@ import type {
 
                     <div
                         class="mt-5 overflow-x-auto pb-1"
-                        role="img"
+                        role="group"
                         [attr.aria-label]="chartAriaLabel(currentStats.chart)"
                         [class.opacity-60]="pending()"
                     >
                         <div
                             class="flex h-56 min-w-max items-end gap-2 border-b border-slate-200 px-1 sm:gap-3"
                         >
-                            @for (item of currentStats.chart.points; track item.key) {
-                                <div
-                                    class="flex h-full flex-col justify-end"
+                            @for (
+                                item of currentStats.chart.points;
+                                track item.key;
+                                let first = $first;
+                                let last = $last
+                            ) {
+                                <button
+                                    type="button"
+                                    class="group relative flex h-full cursor-pointer flex-col justify-end focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400"
                                     [class]="barWidth(currentStats.chart.period)"
+                                    [attr.aria-label]="
+                                        fullPointDate(item.key, currentStats.chart.period) +
+                                        ', ' +
+                                        formatDuration(item.totalSeconds)
+                                    "
+                                    (click)="togglePoint($event, item.key)"
                                 >
+                                    <span
+                                        class="pointer-events-none invisible absolute top-0 z-20 w-44 rounded-lg bg-slate-900 px-3 py-2 text-center text-xs font-medium normal-case text-white opacity-0 shadow-lg transition group-hover:visible group-hover:opacity-100"
+                                        [class.left-0]="first"
+                                        [class.right-0]="last"
+                                        [class.left-1/2]="!first && !last"
+                                        [class.-translate-x-1/2]="!first && !last"
+                                        [class.!visible]="selectedPointKey() === item.key"
+                                        [class.!opacity-100]="selectedPointKey() === item.key"
+                                    >
+                                        <span class="block font-bold">
+                                            {{ fullPointDate(item.key, currentStats.chart.period) }}
+                                        </span>
+                                        <span class="mt-1 block text-slate-300">
+                                            {{ formatDuration(item.totalSeconds) }} ·
+                                            {{ i18n.t("stats.chartTarget") }}
+                                            {{ formatCompactDuration(item.targetSeconds) }}
+                                        </span>
+                                    </span>
                                     <span
                                         class="mb-2 text-center text-xs font-semibold text-slate-600"
                                     >
+                                        @if (item.hot) {
+                                            <span
+                                                [attr.title]="i18n.t('stats.targetReached')"
+                                                aria-hidden="true"
+                                                >🔥</span
+                                            >
+                                        }
                                         {{ formatCompactDuration(item.totalSeconds) }}
                                     </span>
                                     <div
                                         class="flex h-40 items-end rounded-t-lg bg-slate-100 px-1.5 sm:px-2"
                                     >
                                         <div
-                                            class="w-full min-h-1 rounded-t-md bg-gradient-to-t from-indigo-600 to-sky-400"
+                                            class="heat-bar w-full min-h-1 rounded-t-md"
                                             [style.height.%]="
                                                 barHeight(item.totalSeconds, currentStats.chart.points)
                                             "
-                                            [attr.title]="
-                                                formatPointLabel(item.key, currentStats.chart.period) +
-                                                ' : ' +
-                                                formatDuration(item.totalSeconds)
+                                            [style.--heat-hsl]="
+                                                heatColorHsl(item.totalSeconds, item.targetSeconds)
+                                            "
+                                            [style.--heat-hsl-light]="
+                                                heatColorHsl(item.totalSeconds, item.targetSeconds, true)
+                                            "
+                                            [style.--heat-oklch]="
+                                                heatColorOklch(item.totalSeconds, item.targetSeconds)
+                                            "
+                                            [style.--heat-oklch-light]="
+                                                heatColorOklch(item.totalSeconds, item.targetSeconds, true)
                                             "
                                         ></div>
                                     </div>
@@ -167,7 +227,7 @@ import type {
                                     >
                                         {{ formatPointLabel(item.key, currentStats.chart.period) }}
                                     </span>
-                                </div>
+                                </button>
                             }
                         </div>
                     </div>
@@ -186,6 +246,9 @@ export class HistoryStatsComponent {
     error = input<string | null>(null);
     pending = input(false);
     chartChange = output<HistoryChartRequest>();
+    readonly selectedPointKey = signal<string | null>(null);
+    protected readonly heatColorHsl = heatColorHsl;
+    protected readonly heatColorOklch = heatColorOklch;
     readonly chartPeriods: Array<{ period: HistoryChartPeriod; labelKey: TranslationKey }> = [
         { period: "week", labelKey: "stats.chartWeek" },
         { period: "month", labelKey: "stats.chartMonth" },
@@ -217,7 +280,7 @@ export class HistoryStatsComponent {
 
     selectPeriod(period: HistoryChartPeriod): void {
         if (this.stats()?.chart.period !== period) {
-            this.chartChange.emit({ period });
+            this.chartChange.emit({ period, anchor: this.stats()?.chart.anchor });
         }
     }
 
@@ -225,6 +288,16 @@ export class HistoryStatsComponent {
         if (anchor) {
             this.chartChange.emit({ period: chart.period, anchor });
         }
+    }
+
+    togglePoint(event: Event, key: string): void {
+        event.stopPropagation();
+        this.selectedPointKey.update((selected) => (selected === key ? null : key));
+    }
+
+    @HostListener("document:click")
+    closePointTooltip(): void {
+        this.selectedPointKey.set(null);
     }
 
     formatChartRange(chart: HistoryChart): string {
@@ -247,6 +320,18 @@ export class HistoryStatsComponent {
             return this.formatDate(key, { weekday: "short" });
         }
         return this.formatDate(key, { day: "numeric" });
+    }
+
+    fullPointDate(key: string, period: HistoryChartPeriod): string {
+        if (period === "year") {
+            return this.formatDate(`${key}-01`, { month: "long", year: "numeric" });
+        }
+        return this.formatDate(key, {
+            weekday: "long",
+            day: "numeric",
+            month: "long",
+            year: "numeric",
+        });
     }
 
     maxSeconds(points: HistoryChartPoint[]): number {

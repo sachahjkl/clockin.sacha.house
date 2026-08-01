@@ -89,6 +89,11 @@ export class AutoFocusDirective implements AfterViewInit {
                                     {{
                                         row.day | date: "EEE d MMM" : undefined : i18n.dateLocale()
                                     }}
+                                    @if (row.hot) {
+                                        <span [title]="i18n.t('stats.targetReached')" aria-hidden="true"
+                                            >🔥</span
+                                        >
+                                    }
                                 </td>
                                 @for (slot of slots; track slot) {
                                     <td class="px-4 py-3 text-slate-600">
@@ -335,6 +340,7 @@ export interface TableRow {
     secondEntry: string | null;
     secondExit: string | null;
     total: string;
+    hot: boolean;
 }
 
 function formatTimeFieldValue(value: string): string {

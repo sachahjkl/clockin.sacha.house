@@ -5,6 +5,7 @@ import { debounceTime, filter, map } from "rxjs";
 import { IconComponent } from "./icon.component";
 import { I18nService } from "../core/i18n.service";
 import type { Pointage } from "../core/models";
+import { computePointageTotalSeconds, isNearTarget } from "../core/work-target";
 
 interface HistoryPageRequest {
     offset: number;
@@ -82,6 +83,11 @@ const PAGE_SIZE = 500;
                                         pointage.day
                                             | date: "mediumDate" : undefined : i18n.dateLocale()
                                     }}
+                                    @if (isHot(pointage)) {
+                                        <span [title]="i18n.t('stats.targetReached')" aria-hidden="true"
+                                            >🔥</span
+                                        >
+                                    }
                                 </div>
                                 <div
                                     class="whitespace-nowrap px-4 py-3 text-slate-600"
@@ -154,6 +160,7 @@ export class HistoryVirtualListComponent implements AfterViewInit {
     private readonly jumpToDateInput = viewChild<ElementRef<HTMLInputElement>>("jumpToDateInput");
     readonly pointages = input.required<Array<Pointage | null>>();
     readonly total = input.required<number>();
+    readonly dailyTargetSeconds = input(0);
     readonly targetIndex = input<number | null>(null);
     readonly deletePointage = output<number>();
     readonly goToDate = output<string>();
@@ -211,6 +218,13 @@ export class HistoryVirtualListComponent implements AfterViewInit {
     }
 
     trackByIndex = (index: number): number => index;
+
+    isHot(pointage: Pointage): boolean {
+        return isNearTarget(
+            computePointageTotalSeconds(pointage),
+            this.dailyTargetSeconds(),
+        );
+    }
 
     openDatePicker(): void {
         const input = this.jumpToDateInput()?.nativeElement;

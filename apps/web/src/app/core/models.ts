@@ -2,6 +2,8 @@ export interface User {
     userId: string;
     name: string | null;
     email: string | null;
+    weeklyTargetMinutes: number;
+    workDaysPerWeek: number;
     createdAt: string;
 }
 
@@ -46,10 +48,13 @@ export type HistoryChartPeriod = "week" | "month" | "year";
 export interface HistoryChartPoint {
     key: string;
     totalSeconds: number;
+    targetSeconds: number;
+    hot: boolean;
 }
 
 export interface HistoryChart {
     period: HistoryChartPeriod;
+    anchor: string;
     from: string;
     to: string;
     previousAnchor: string;
@@ -66,6 +71,7 @@ export interface HistoryStats {
     week: HistoryPeriodStats;
     month: HistoryPeriodStats;
     year: HistoryPeriodStats;
+    dailyTargetSeconds: number;
     chart: HistoryChart;
 }
 

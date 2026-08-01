@@ -10,6 +10,8 @@ import { sendDemoReadOnlyIfNeeded } from "./demo-response.js";
 const profileSchema = z.object({
     name: z.string().trim().max(120).nullable().optional(),
     email: z.string().trim().email().max(254).nullable().or(z.literal("")).optional(),
+    weeklyTargetMinutes: z.number().int().min(60).max(10080).optional(),
+    workDaysPerWeek: z.number().int().min(1).max(7).optional(),
 });
 const daySchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid date");
 
@@ -20,6 +22,8 @@ const meRoutes: FastifyPluginAsyncZod = async (fastify) => {
             userId: user.userId,
             name: user.name,
             email: user.email,
+            weeklyTargetMinutes: user.weeklyTargetMinutes,
+            workDaysPerWeek: user.workDaysPerWeek,
             createdAt: user.createdAt,
         });
     });
@@ -56,6 +60,8 @@ const meRoutes: FastifyPluginAsyncZod = async (fastify) => {
                     userId: user.userId,
                     name: user.name,
                     email: user.email,
+                    weeklyTargetMinutes: user.weeklyTargetMinutes,
+                    workDaysPerWeek: user.workDaysPerWeek,
                     createdAt: user.createdAt,
                 },
                 pointages: records,
@@ -81,12 +87,16 @@ const meRoutes: FastifyPluginAsyncZod = async (fastify) => {
                 .set({
                     name: normalizeOptionalText(request.body.name),
                     email: normalizeOptionalText(request.body.email),
+                    weeklyTargetMinutes: request.body.weeklyTargetMinutes,
+                    workDaysPerWeek: request.body.workDaysPerWeek,
                 })
                 .where(and(eq(users.id, user.id), eq(users.userId, user.userId)))
                 .returning({
                     userId: users.userId,
                     name: users.name,
                     email: users.email,
+                    weeklyTargetMinutes: users.weeklyTargetMinutes,
+                    workDaysPerWeek: users.workDaysPerWeek,
                     createdAt: users.createdAt,
                 })
                 .get();

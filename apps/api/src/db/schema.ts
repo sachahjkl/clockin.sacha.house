@@ -5,6 +5,8 @@ export const users = sqliteTable("users", {
     userId: text("user_id").notNull().unique(),
     name: text("name"),
     email: text("email"),
+    weeklyTargetMinutes: integer("weekly_target_minutes").notNull().default(2400),
+    workDaysPerWeek: integer("work_days_per_week").notNull().default(5),
     createdAt: integer("created_at", { mode: "timestamp" })
         .notNull()
         .$defaultFn(() => new Date()),

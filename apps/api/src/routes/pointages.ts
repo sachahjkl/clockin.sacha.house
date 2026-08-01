@@ -35,6 +35,7 @@ type ChartPeriod = z.infer<typeof chartPeriodSchema>;
 
 interface ChartRange extends StatsPeriod {
     period: ChartPeriod;
+    anchor: string;
     previousAnchor: string;
     nextAnchor: string | null;
 }
@@ -258,9 +259,17 @@ const pointagesRoutes: FastifyPluginAsyncZod = async (fastify) => {
                 week: summarizePeriod(records, periods.week),
                 month: summarizePeriod(records, periods.month),
                 year: summarizePeriod(records, periods.year),
+                dailyTargetSeconds: Math.round(
+                    (user.weeklyTargetMinutes * 60) / user.workDaysPerWeek,
+                ),
                 chart: {
                     ...chart,
-                    points: summarizeChart(chartRecords, chart),
+                    points: summarizeChart(
+                        chartRecords,
+                        chart,
+                        user.weeklyTargetMinutes,
+                        user.workDaysPerWeek,
+                    ),
                 },
             });
         },
@@ -573,42 +582,73 @@ function summarizePeriod(records: Array<Pick<Pointage, "day" | Slot>>, period: S
 }
 
 function chartRange(period: ChartPeriod, anchor: string | undefined, now: Date): ChartRange {
+    const today = fromISODate(toISODate(now));
     const currentStart = startOfChartPeriod(period, now);
-    let start = startOfChartPeriod(period, anchor ? fromISODate(anchor) : now);
-    if (start > currentStart) {
-        start = currentStart;
-    }
+    const requestedAnchor = anchor ? fromISODate(anchor) : today;
+    const selectedAnchor = requestedAnchor > today ? today : requestedAnchor;
+    const start = startOfChartPeriod(period, selectedAnchor);
 
     const fullEnd = endOfChartPeriod(period, start);
-    const today = toISODate(now);
+    const todayKey = toISODate(today);
     const from = toISODate(start);
-    const to = toISODate(fullEnd) > today ? today : toISODate(fullEnd);
-    const previous = shiftChartPeriod(period, start, -1);
-    const next = shiftChartPeriod(period, start, 1);
+    const to = toISODate(fullEnd) > todayKey ? todayKey : toISODate(fullEnd);
+    const previous = shiftChartAnchor(period, selectedAnchor, -1);
+    const next = shiftChartAnchor(period, selectedAnchor, 1);
 
     return {
         period,
+        anchor: toISODate(selectedAnchor),
         from,
         to,
         previousAnchor: toISODate(previous),
-        nextAnchor: next <= currentStart ? toISODate(next) : null,
+        nextAnchor: startOfChartPeriod(period, next) <= currentStart ? toISODate(next) : null,
     };
 }
 
-function summarizeChart(records: Array<Pick<Pointage, "day" | Slot>>, range: ChartRange) {
+function summarizeChart(
+    records: Array<Pick<Pointage, "day" | Slot>>,
+    range: ChartRange,
+    weeklyTargetMinutes: number,
+    workDaysPerWeek: number,
+) {
     const totals = new Map<string, number>();
     for (const record of records) {
         const key = range.period === "year" ? record.day.slice(0, 7) : record.day;
         totals.set(key, (totals.get(key) ?? 0) + computeTotalSeconds(record as Pointage));
     }
 
-    const points: Array<{ key: string; totalSeconds: number }> = [];
+    const points: Array<{
+        key: string;
+        totalSeconds: number;
+        targetSeconds: number;
+        hot: boolean;
+    }> = [];
     const cursor = fromISODate(range.from);
     const end = fromISODate(range.to);
+    const weeklyTargetSeconds = weeklyTargetMinutes * 60;
+    const dailyTargetSeconds = Math.round(weeklyTargetSeconds / workDaysPerWeek);
 
     while (cursor <= end) {
         const key = range.period === "year" ? toISODate(cursor).slice(0, 7) : toISODate(cursor);
-        points.push({ key, totalSeconds: totals.get(key) ?? 0 });
+        const totalSeconds = totals.get(key) ?? 0;
+
+        // Daily bars use the configured weekly target divided by worked days.
+        // Monthly bars are prorated by calendar length so 40h/week becomes
+        // roughly 177h for a 31-day month. Heat reaches its maximum at 100%.
+        const targetSeconds =
+            range.period === "year"
+                ? Math.round((weeklyTargetSeconds * daysInMonth(cursor)) / 7)
+                : dailyTargetSeconds;
+        points.push({
+            key,
+            totalSeconds,
+            targetSeconds,
+            // The flame is intentionally limited to day bars and starts 15m before target.
+            hot:
+                range.period !== "year" &&
+                totalSeconds > 0 &&
+                totalSeconds >= targetSeconds - 15 * 60,
+        });
         if (range.period === "year") {
             cursor.setUTCMonth(cursor.getUTCMonth() + 1, 1);
         } else {
@@ -651,6 +691,27 @@ function shiftChartPeriod(period: ChartPeriod, date: Date, amount: number): Date
         shifted.setUTCFullYear(shifted.getUTCFullYear() + amount, 0, 1);
     }
     return shifted;
+}
+
+function shiftChartAnchor(period: ChartPeriod, date: Date, amount: number): Date {
+    if (period === "week") {
+        return shiftChartPeriod(period, date, amount);
+    }
+
+    const shifted = new Date(date);
+    const day = shifted.getUTCDate();
+    shifted.setUTCDate(1);
+    if (period === "month") {
+        shifted.setUTCMonth(shifted.getUTCMonth() + amount);
+    } else {
+        shifted.setUTCFullYear(shifted.getUTCFullYear() + amount);
+    }
+    shifted.setUTCDate(Math.min(day, daysInMonth(shifted)));
+    return shifted;
+}
+
+function daysInMonth(date: Date): number {
+    return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + 1, 0)).getUTCDate();
 }
 
 function fromISODate(day: string): Date {

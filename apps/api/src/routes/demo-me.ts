@@ -19,6 +19,8 @@ export function sendDemoClockinPageDataIfNeeded(
             userId: user.userId,
             name: user.name,
             email: user.email,
+            weeklyTargetMinutes: user.weeklyTargetMinutes,
+            workDaysPerWeek: user.workDaysPerWeek,
             createdAt: user.createdAt,
         },
         pointages: demoPointagesInRange(user, from, to),
