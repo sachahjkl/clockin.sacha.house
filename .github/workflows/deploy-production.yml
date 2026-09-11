@@ -42,25 +42,35 @@ jobs:
           audience: ${{ vars.TS_AUDIENCE }}
           tags: tag:github-actions-deploy
           ping: homelab.panthera-python.ts.net
-      - name: Promote the exact staging image
+      - id: image
+        name: Verify the exact staging image
+        timeout-minutes: 5
         env:
           GH_TOKEN: ${{ github.token }}
           NOMAD_ADDR: http://homelab.panthera-python.ts.net:4646
           NOMAD_TOKEN: ${{ secrets.NOMAD_TOKEN }}
         run: |
-          image=$(nomad job inspect -namespace staging -json clockin-sacha-house | jq -r .Meta.image)
+          image=$(timeout 30s nomad job inspect -namespace staging -json clockin-sacha-house | jq -r .Meta.image)
           [[ "$image" =~ ^ghcr\.io/sachahjkl/clockin\.sacha\.house@sha256:[0-9a-f]{64}$ ]]
-          cosign verify \
+          timeout 2m cosign verify \
             --certificate-identity-regexp '^https://github.com/sachahjkl/clockin\.sacha\.house/\.github/workflows/ci\.yml@refs/heads/master$' \
             --certificate-oidc-issuer https://token.actions.githubusercontent.com \
             "$image"
-          cosign verify-attestation \
+          timeout 2m cosign verify-attestation \
             --certificate-identity-regexp '^https://github.com/sachahjkl/clockin\.sacha\.house/\.github/workflows/ci\.yml@refs/heads/master$' \
             --certificate-oidc-issuer https://token.actions.githubusercontent.com \
             --type spdxjson \
             "$image"
-          gh attestation verify "oci://$image" --repo "$GITHUB_REPOSITORY"
-          nomad job run -detach -namespace production -var "image=$image" deploy/nomad/production.nomad.hcl
+          timeout 2m gh attestation verify "oci://$image" --repo "$GITHUB_REPOSITORY"
+          printf 'image=%s\n' "$image" >>"$GITHUB_OUTPUT"
+      - name: Deploy the verified image
+        timeout-minutes: 8
+        env:
+          image: ${{ steps.image.outputs.image }}
+          NOMAD_ADDR: http://homelab.panthera-python.ts.net:4646
+          NOMAD_TOKEN: ${{ secrets.NOMAD_TOKEN }}
+        run: |
+          timeout 30s nomad job run -detach -namespace production -var "image=$image" deploy/nomad/production.nomad.hcl
           test "$(nomad job inspect -namespace production -json clockin-sacha-house | jq -r .Meta.image)" = "$image"
           version=$(nomad job inspect -namespace production -json clockin-sacha-house | jq -r .Version)
           for _ in $(seq 1 72); do
