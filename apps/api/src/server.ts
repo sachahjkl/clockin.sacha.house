@@ -67,6 +67,7 @@ async function main() {
     fastify.setSerializerCompiler(serializerCompiler);
     fastify.decorateRequest("user", null);
     fastify.addHook("onRequest", populateUser);
+    fastify.get("/api/health", async () => ({ status: "ok" }));
 
     await fastify.register(cors, {
         origin: corsOrigin,

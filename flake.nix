@@ -1,15 +1,25 @@
 {
   description = "Clock-in — Angular SPA + Fastify backend, packaged as a NixOS service";
 
+  nixConfig = {
+    extra-substituters = ["https://nix-community.cachix.org"];
+    extra-trusted-public-keys = ["nix-community.cachix.org-1:mB9FSh9qf2dCimDSUo8Zy7bkq5CX+/rkCWyvRCYg3Fs="];
+  };
+
   inputs = {
-    nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
+    nixpkgs.url = "https://flakehub.com/f/NixOS/nixpkgs/0.2605";
     flake-utils.url = "github:numtide/flake-utils";
+    git-hooks = {
+      url = "https://flakehub.com/f/cachix/git-hooks.nix/0.1";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
   outputs = {
     self,
     nixpkgs,
     flake-utils,
+    git-hooks,
   }:
     flake-utils.lib.eachDefaultSystem (
       system: let
@@ -36,6 +46,13 @@
             export NG_CLI_ANALYTICS=false
           '';
 
+          doCheck = true;
+          checkPhase = ''
+            runHook preCheck
+            npm run lint
+            runHook postCheck
+          '';
+
           installPhase = ''
                         npm prune --omit=dev
                         mkdir -p $out/bin $out/apps/api $out/apps/web/dist/web
@@ -55,22 +72,78 @@
                       chmod +x $out/bin/clockin
           '';
         };
+        dockerImage = pkgs.dockerTools.buildLayeredImage {
+          name = "clockin.sacha.house";
+          tag = self.shortRev or "nix";
+          contents = [
+            clockin
+            pkgs.busybox
+            pkgs.cacert
+            pkgs.sqlite
+            pkgs.tzdata
+          ];
+          fakeRootCommands = ''
+            mkdir -p ./data
+            chown 65532:65532 ./data
+            chmod 0700 ./data
+          '';
+          config = {
+            User = "65532:65532";
+            WorkingDir = "/data";
+            Env = [
+              "DATABASE_URL=/data/clockin.sqlite"
+              "HOST=0.0.0.0"
+              "PORT=3000"
+              "NG_ALLOWED_HOSTS=clockin.sacha.house,staging.clockin.sacha.house,127.0.0.1,localhost"
+              "SSL_CERT_FILE=${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt"
+            ];
+            Volumes."/data" = {};
+            ExposedPorts."3000/tcp" = {};
+            Cmd = ["${clockin}/bin/clockin"];
+          };
+        };
+        preCommitCheck = git-hooks.lib.${system}.run {
+          package = pkgs.prek;
+          src = ./.;
+          hooks = {
+            actionlint.enable = true;
+            alejandra.enable = true;
+            check-added-large-files.enable = true;
+            check-json.enable = true;
+            check-merge-conflicts.enable = true;
+            check-yaml.enable = true;
+            end-of-file-fixer.enable = true;
+            trim-trailing-whitespace.enable = true;
+          };
+        };
       in {
-        packages.default = clockin;
+        packages = {
+          default = clockin;
+          inherit dockerImage;
+        };
         formatter = pkgs.alejandra;
 
+        checks = {
+          package = clockin;
+          inherit dockerImage;
+          pre-commit = preCommitCheck;
+        };
+
         devShells.default = pkgs.mkShell {
-          packages = with pkgs; [
-            nodejs
-            corepack
-            python3
-            gnumake
-            gcc
-            sqlite
-            node-gyp
-          ];
+          packages =
+            preCommitCheck.enabledPackages
+            ++ (with pkgs; [
+              nodejs
+              corepack
+              python3
+              gnumake
+              gcc
+              sqlite
+              node-gyp
+            ]);
 
           shellHook = ''
+            ${preCommitCheck.shellHook}
             echo "Clock-in dev shell"
             echo "  npm run dev        -> start API + Angular dev server"
             echo "  npm run build      -> build API (tsc) + web"

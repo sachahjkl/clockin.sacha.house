@@ -117,6 +117,22 @@ Migrations are committed in `apps/api/drizzle/`. They are applied automatically 
 npm run db:generate
 ```
 
+## Deployment
+
+GitHub Actions checks pull requests and accepted `master` commits on `ubuntu-latest`.
+
+An accepted commit publishes one signed OCI image and deploys its digest to staging.
+
+The production workflow promotes the exact staging digest after environment approval.
+
+Nomad stores each environment database in a separate dynamic host volume.
+
+The production job creates a consistent SQLite backup before each replacement allocation starts.
+
+Run `deploy/backup.sh` on the Nomad host to create an additional checked database backup.
+
+Stop the selected Nomad job before you run `deploy/restore.sh`.
+
 ## Decisions & notes
 
 - **npm instead of pnpm**: pnpm is great for local development, but Nix's `buildNpmPackage` has mature, deterministic support for npm lockfiles and native-addon builds. Using npm everywhere keeps the same tool for dev and deployment.
