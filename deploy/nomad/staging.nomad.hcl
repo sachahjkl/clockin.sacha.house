@@ -49,9 +49,7 @@ job "clockin-sacha-house" {
       mode = "host"
 
       port "http" {
-        static       = 9081
-        to           = 3000
-        host_network = "loopback"
+        to = 3000
       }
     }
 
