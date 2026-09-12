@@ -3,21 +3,20 @@ application:
   port: 3000
   healthPath: /api/health
 
+modules:
+  task:
+    - deploy/task.hcl
+
 environments:
   staging:
     domain: staging.clockin.sacha.house
     noIndex: true
-    modules:
-      task:
-        - deploy/task-staging.hcl
   production:
     domain: clockin.sacha.house
 
     modules:
       group:
         - deploy/group-production.hcl
-      task:
-        - deploy/task-production.hcl
 volume:
   mountPath: /data
 
