@@ -73,9 +73,9 @@ job "clockin-sacha-house" {
       }
 
       env {
-        DATABASE_URL    = "/data/clockin.sqlite"
-        HOST            = "0.0.0.0"
-        PORT            = "3000"
+        DATABASE_URL     = "/data/clockin.sqlite"
+        HOST             = "0.0.0.0"
+        PORT             = "3000"
         NG_ALLOWED_HOSTS = "staging.clockin.sacha.house,127.0.0.1,localhost"
       }
 
@@ -88,6 +88,13 @@ job "clockin-sacha-house" {
         name     = "clockin-sacha-house-staging"
         provider = "nomad"
         port     = "http"
+        tags = [
+          "traefik.enable=true",
+          "traefik.http.routers.clockin-sacha-house-staging.entrypoints=nomad",
+          "traefik.http.routers.clockin-sacha-house-staging.middlewares=clockin-sacha-house-staging-noindex",
+          "traefik.http.routers.clockin-sacha-house-staging.rule=Host(`staging.clockin.sacha.house`)",
+          "traefik.http.middlewares.clockin-sacha-house-staging-noindex.headers.customresponseheaders.X-Robots-Tag=noindex, nofollow",
+        ]
 
         check {
           name     = "HTTP health"

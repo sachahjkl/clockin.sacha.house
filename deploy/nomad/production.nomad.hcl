@@ -99,9 +99,9 @@ job "clockin-sacha-house" {
       }
 
       env {
-        DATABASE_URL    = "/data/clockin.sqlite"
-        HOST            = "0.0.0.0"
-        PORT            = "3000"
+        DATABASE_URL     = "/data/clockin.sqlite"
+        HOST             = "0.0.0.0"
+        PORT             = "3000"
         NG_ALLOWED_HOSTS = "clockin.sacha.house,127.0.0.1,localhost"
       }
 
@@ -114,6 +114,11 @@ job "clockin-sacha-house" {
         name     = "clockin-sacha-house-production"
         provider = "nomad"
         port     = "http"
+        tags = [
+          "traefik.enable=true",
+          "traefik.http.routers.clockin-sacha-house-production.entrypoints=nomad",
+          "traefik.http.routers.clockin-sacha-house-production.rule=Host(`clockin.sacha.house`)",
+        ]
 
         check {
           name     = "HTTP health"
