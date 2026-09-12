@@ -114,7 +114,7 @@ job "clockin-sacha-house" {
         port     = "http"
         tags = [
           "traefik.enable=true",
-          "traefik.http.routers.clockin-sacha-house-production.entrypoints=nomad",
+          "traefik.http.routers.clockin-sacha-house-production.entrypoints=websecure",
           "traefik.http.routers.clockin-sacha-house-production.rule=Host(`clockin.sacha.house`)",
         ]
 

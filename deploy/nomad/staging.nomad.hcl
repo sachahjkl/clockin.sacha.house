@@ -88,7 +88,7 @@ job "clockin-sacha-house" {
         port     = "http"
         tags = [
           "traefik.enable=true",
-          "traefik.http.routers.clockin-sacha-house-staging.entrypoints=nomad",
+          "traefik.http.routers.clockin-sacha-house-staging.entrypoints=websecure",
           "traefik.http.routers.clockin-sacha-house-staging.middlewares=clockin-sacha-house-staging-noindex",
           "traefik.http.routers.clockin-sacha-house-staging.rule=Host(`staging.clockin.sacha.house`)",
           "traefik.http.routers.clockin-sacha-house-staging.tls.domains[0].main=staging.clockin.sacha.house",
