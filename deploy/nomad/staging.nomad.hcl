@@ -93,6 +93,7 @@ job "clockin-sacha-house" {
           "traefik.http.routers.clockin-sacha-house-staging.entrypoints=nomad",
           "traefik.http.routers.clockin-sacha-house-staging.middlewares=clockin-sacha-house-staging-noindex",
           "traefik.http.routers.clockin-sacha-house-staging.rule=Host(`staging.clockin.sacha.house`)",
+          "traefik.http.routers.clockin-sacha-house-staging.tls.domains[0].main=staging.clockin.sacha.house",
           "traefik.http.middlewares.clockin-sacha-house-staging-noindex.headers.customresponseheaders.X-Robots-Tag=noindex, nofollow",
         ]
 
