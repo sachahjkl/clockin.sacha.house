@@ -1,0 +1,11 @@
+application:
+  name: clockin-sacha-house
+  port: 3000
+  healthPath: /api/health
+
+domain:
+  production: clockin.sacha.house
+  staging: staging.clockin.sacha.house
+
+volume:
+  mountPath: /data
