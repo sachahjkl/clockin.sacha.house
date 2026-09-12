@@ -129,9 +129,7 @@ Nomad stores each environment database in a separate dynamic host volume.
 
 The production job creates a consistent SQLite backup before each replacement allocation starts.
 
-Run `deploy/backup.sh` on the Nomad host to create an additional checked database backup.
 
-Stop the selected Nomad job before you run `deploy/restore.sh`.
 
 ## Decisions & notes
 
